@@ -1,36 +1,24 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Baliqchi tumani O‘quvchilar Kengashi Platformasi
 
-## Getting Started
+O‘zbekiston Respublikasi Maktabgacha va maktab ta’limi vazirining **2026-yil 25-sentabrdagi 365-son buyrug‘iga 2-ilova** (O‘quvchilar Kengashi Nizomi) asosida Baliqchi tumanidagi **61 ta maktab**, Kelajak Liderlari, 7 ta yo‘nalish koordinatorlari va barcha 5–11-sinf o‘quvchilari uchun yaratilgan yagona raqamli ekotizim.
 
-First, run the development server:
+## Asosiy Imkoniyatlar
+
+- **Ikki darajali tashkiliy tuzilma:** 1 Tuman Kelajak Lideri + 7 Tuman koordinatori va 61 ta maktabning mustaqil raqamli profillari.
+- **7 ta rasmiy yo‘nalish:** Ta’lim, Madaniyat, IT va sun’iy intellekt, Sport, Ekologiya, Media, Ijtimoiy tashabbus.
+- **8 ta boshqaruv guruhi:** 7 ta yo‘nalish koordinatori guruhi + alohida Kelajak Liderlari guruhi va boshqaruv dashboardi.
+- **Loyihalar va 10 bosqichli monitoring:** 12 maydonli rasmiy loyiha formasi, progress bar, haftalik yangilanishlar va izohlar.
+- **Atomar haftalik ovoz berish:** Har bir tasdiqlangan o‘quvchi haftasiga barcha 7 yo‘nalish bo‘yicha **jami 1 ta ovoz** bera oladi (`UNIQUE (user_id, voting_week_id)` + PostgreSQL `cast_weekly_vote` RPC).
+- **Ko‘p mezonli 61 maktab reytingi:** Haftalik, oylik va umumiy kesimda sozlanadigan vazn koeffitsiyentlari.
+- **7 rolli RBAC + Supabase RLS + PII himoyasi:** Telefon raqamlari alohida `user_private_details` jadvalida saqlanadi (faqat egasi va Super Admin ko‘radi).
+- **Super Administrator paneli (`/admin`):** Foydalanuvchilar, rollar, maktablar, yo‘nalishlar, loyihalar, ovoz berish haftalari, reyting mezonlari va audit logi ustidan to‘liq nazorat.
+
+## Ishga Tushirish
 
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To‘liq Supabase va Vercel sozlash qo‘llanmasi: [DEPLOYMENT.md](./DEPLOYMENT.md).
