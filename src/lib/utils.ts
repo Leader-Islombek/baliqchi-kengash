@@ -25,7 +25,19 @@ export function normalizeUzPhone(raw: string): string | null {
  */
 export function phoneToAuthEmail(phoneE164: string): string {
   const clean = phoneE164.replace(/\D/g, "");
-  const domain = process.env.AUTH_PHONE_DOMAIN || "baliqchi-kengash.uz";
+  const rawDomain = (process.env.AUTH_PHONE_DOMAIN || "baliqchi-kengash.uz")
+    .trim()
+    .replace(/^=+/, "")
+    .replace(/^["']|["']$/g, "")
+    .replace(/^https?:\/\//i, "")
+    .split("/")[0]
+    .trim()
+    .toLowerCase();
+
+  const domain = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(rawDomain)
+    ? rawDomain
+    : "baliqchi-kengash.uz";
+
   return `u${clean}@${domain}`;
 }
 

@@ -13,7 +13,7 @@ export function createSupabaseAdminClient() {
     return null;
   }
   const { url } = getSupabasePublicEnv();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!.trim();
   return createClient(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
