@@ -1,6 +1,6 @@
-import { PageHeader } from "@/components/shared/empty-state";
-import { RegisterForm } from "@/components/features/auth/auth-forms";
-import { getDirections, getSchools } from "@/lib/data/queries";
+import { PageHeader } from "@/core/ui/shared/empty-state";
+import { RegisterForm } from "@/modules/accounts/components/auth-forms";
+import { getDirections, getSchools } from "@/core/db/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { Button } from "@/components/ui/button";
-import { ProjectCreateForm } from "@/components/features/projects/project-form";
-import { getCurrentUserContext, getDirections, getSchools } from "@/lib/data/queries";
-import { hasPermission } from "@/lib/auth/permissions";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { Button } from "@/core/ui/primitives/button";
+import { ProjectCreateForm } from "@/modules/projects/components/project-form";
+import { getCurrentUserContext, getDirections, getSchools } from "@/core/db/queries";
+import { hasPermission } from "@/core/security/permissions";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

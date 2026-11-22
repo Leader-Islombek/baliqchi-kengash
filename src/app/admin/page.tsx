@@ -1,7 +1,7 @@
 import { ShieldAlert } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { AdminConsole } from "@/components/features/admin/admin-console";
-import { getAdminOverviewData, getCurrentUserContext } from "@/lib/data/queries";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { AdminConsole } from "@/modules/administration/components/admin-console";
+import { getAdminOverviewData, getCurrentUserContext } from "@/core/db/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

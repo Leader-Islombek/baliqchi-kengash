@@ -1,23 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar, CheckCircle2, Clock, School, User } from "lucide-react";
-import { PageHeader } from "@/components/shared/empty-state";
-import { Badge, Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ProgressBar } from "@/components/ui/fields";
-import { VoteButton } from "@/components/shared/vote-button";
+import { PageHeader } from "@/core/ui/shared/empty-state";
+import { Badge, Card, CardContent } from "@/core/ui/primitives/card";
+import { Button } from "@/core/ui/primitives/button";
+import { ProgressBar } from "@/core/ui/primitives/fields";
+import { VoteButton } from "@/modules/voting/components/vote-button";
+import { SafeProjectCover } from "@/core/ui/shared/safe-cover-image";
 import {
   ProjectCommentsSection,
+  ProjectOwnerControls,
   ProjectUpdateForm,
-} from "@/components/features/projects/project-interactions";
-import { PROJECT_STATUS_META } from "@/lib/constants/official-data";
+} from "@/modules/projects/components/project-interactions";
+import { PROJECT_STATUS_META } from "@/core/config/official-data";
 import {
   getActiveVotingData,
   getCurrentUserContext,
   getProjectBySlug,
-} from "@/lib/data/queries";
-import { hasPermission } from "@/lib/auth/permissions";
-import { formatUzDate } from "@/lib/utils";
+} from "@/core/db/queries";
+import { hasPermission } from "@/core/security/permissions";
+import { formatUzDate } from "@/core/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,13 @@ export default async function ProjectDetailPage({
     project.status === "voting" &&
     votingData.activeWeek?.id === project.voting_week_id;
 
+  const isOwner = Boolean(userCtx && userCtx.user.id === project.author_id);
+  const canEditProject =
+    Boolean(userCtx?.isSuperAdmin) ||
+    (isOwner && ["draft", "submitted"].includes(project.status));
+  const canDeleteProject =
+    Boolean(userCtx?.isSuperAdmin) || (isOwner && project.status === "draft");
+
   const sections = [
     { label: "Muammo va dolzarblik", value: project.problem_statement },
     { label: "Loyihaning maqsadi", value: project.goal },
@@ -66,9 +75,17 @@ export default async function ProjectDetailPage({
             Barcha loyihalar
           </Button>
         </Link>
+        <ProjectOwnerControls
+          project={project}
+          canEdit={canEditProject}
+          canDelete={canDeleteProject}
+        />
         {isInActiveVoting && (
           <VoteButton
             projectId={project.id}
+            projectTitle={project.title}
+            directionName={project.direction?.name}
+            schoolName={project.school ? `${project.school.school_number}-maktab` : "Baliqchi tumani"}
             initialVotes={project.votes_count}
             userVotedProjectId={votingData.userVotedProjectId}
             isAuthenticated={Boolean(userCtx)}
@@ -81,12 +98,13 @@ export default async function ProjectDetailPage({
           {/* Chap asosiy ustun */}
           <div className="lg:col-span-8 space-y-6">
             {project.cover_image_url && (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+              <div className="h-64 sm:h-80 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-[#0B1224] to-[#162952]">
+                <SafeProjectCover
                   src={project.cover_image_url}
                   alt={project.title}
-                  className="max-h-[420px] w-full object-cover"
+                  iconName={project.direction?.icon_name}
+                  accentColor={project.direction?.accent_color}
+                  className="h-full w-full object-cover"
                 />
               </div>
             )}
@@ -237,6 +255,9 @@ export default async function ProjectDetailPage({
                 <div className="pt-2">
                   <VoteButton
                     projectId={project.id}
+                    projectTitle={project.title}
+                    directionName={project.direction?.name}
+                    schoolName={project.school ? `${project.school.school_number}-maktab` : "Baliqchi tumani"}
                     initialVotes={project.votes_count}
                     userVotedProjectId={votingData.userVotedProjectId}
                     isAuthenticated={Boolean(userCtx)}

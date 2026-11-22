@@ -11,18 +11,19 @@ import {
   Trophy,
   Vote,
 } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { Badge, Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ProjectCard } from "@/components/shared/project-card";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { Badge, Card } from "@/core/ui/primitives/card";
+import { Button } from "@/core/ui/primitives/button";
+import { ProjectCard } from "@/modules/projects/components/project-card";
 import {
   ActivityReportForm,
   QuickAnnouncementForm,
   QuickEventForm,
   StudentInitiativeForm,
-} from "@/components/features/dashboard/cabinet-forms";
-import { ROLE_META } from "@/lib/constants/official-data";
-import { hasPermission } from "@/lib/auth/permissions";
+} from "@/modules/accounts/components/cabinet-forms";
+import { ProfileEditButton } from "@/modules/accounts/components/profile-edit-modal";
+import { ROLE_META } from "@/core/config/official-data";
+import { hasPermission } from "@/core/security/permissions";
 import {
   getActiveVotingData,
   getCoordinators,
@@ -32,8 +33,8 @@ import {
   getProjects,
   getReports,
   getSchools,
-} from "@/lib/data/queries";
-import { formatUzDate } from "@/lib/utils";
+} from "@/core/db/queries";
+import { formatUzDate } from "@/core/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -105,6 +106,7 @@ export default async function CabinetPage() {
         title={`Xush kelibsiz, ${userCtx.user.first_name} ${userCtx.user.last_name}!`}
         description={roleMeta.description}
       >
+        <ProfileEditButton user={userCtx.user} />
         {canCreateProject && (
           <Link href="/loyihalar/yangi">
             <Button variant="teal">

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { PageHeader } from "@/components/shared/empty-state";
-import { Button } from "@/components/ui/button";
-import { SchoolsGrid } from "@/components/features/schools/schools-grid";
-import { getSchools } from "@/lib/data/queries";
+import { PageHeader } from "@/core/ui/shared/empty-state";
+import { Button } from "@/core/ui/primitives/button";
+import { SchoolsGrid } from "@/modules/schools/components/schools-grid";
+import { getSchools } from "@/core/db/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar, MapPin } from "lucide-react";
-import { PageHeader } from "@/components/shared/empty-state";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { getEventBySlug } from "@/lib/data/queries";
-import { formatUzDate } from "@/lib/utils";
+import { PageHeader } from "@/core/ui/shared/empty-state";
+import { Button } from "@/core/ui/primitives/button";
+import { Card } from "@/core/ui/primitives/card";
+import { getEventBySlug } from "@/core/db/queries";
+import { formatUzDate } from "@/core/utils";
 
 export const dynamic = "force-dynamic";
 

@@ -11,13 +11,13 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { Badge, Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ProjectCard } from "@/components/shared/project-card";
-import { OFFICIAL_CLUBS_LIST, OFFICIAL_DIRECTIONS } from "@/lib/constants/official-data";
-import { getSchoolBySlugOrNumber } from "@/lib/data/queries";
-import { formatUzDate } from "@/lib/utils";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { Badge, Card } from "@/core/ui/primitives/card";
+import { Button } from "@/core/ui/primitives/button";
+import { ProjectCard } from "@/modules/projects/components/project-card";
+import { OFFICIAL_CLUBS_LIST, OFFICIAL_DIRECTIONS } from "@/core/config/official-data";
+import { getSchoolBySlugOrNumber } from "@/core/db/queries";
+import { formatUzDate } from "@/core/utils";
 
 export const dynamic = "force-dynamic";
 

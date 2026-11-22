@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { Award, Calendar, Heart, Scale } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { Badge, Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ProgressBar } from "@/components/ui/fields";
-import { PROJECT_STATUS_META } from "@/lib/constants/official-data";
-import { getWeeklyWinnersArchive } from "@/lib/data/queries";
-import { formatUzDate } from "@/lib/utils";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { Badge, Card, CardContent } from "@/core/ui/primitives/card";
+import { Button } from "@/core/ui/primitives/button";
+import { ProgressBar } from "@/core/ui/primitives/fields";
+import { PROJECT_STATUS_META } from "@/core/config/official-data";
+import { getWeeklyWinnersArchive } from "@/core/db/queries";
+import { formatUzDate } from "@/core/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

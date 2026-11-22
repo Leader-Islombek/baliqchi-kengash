@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Compass, ShieldCheck } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { Badge, Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { OFFICIAL_DIRECTIONS } from "@/lib/constants/official-data";
-import { getCoordinators } from "@/lib/data/queries";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { Badge, Card } from "@/core/ui/primitives/card";
+import { Button } from "@/core/ui/primitives/button";
+import { OFFICIAL_DIRECTIONS } from "@/core/config/official-data";
+import { getCoordinators } from "@/core/db/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

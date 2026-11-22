@@ -1,21 +1,18 @@
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
-import { Providers } from "@/components/shared/providers";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
-import { getCurrentUserContext } from "@/lib/data/queries";
-import { PLATFORM_INFO } from "@/lib/constants/official-data";
+import { Providers } from "@/core/ui/shared/providers";
+import { Navbar } from "@/core/ui/layout/navbar";
+import { Footer } from "@/core/ui/layout/footer";
+import { getCurrentUserContext } from "@/core/db/queries";
+import { PLATFORM_INFO } from "@/core/config/official-data";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-inter",
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-jakarta",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -23,7 +20,8 @@ export const metadata: Metadata = {
     default: `${PLATFORM_INFO.name} — 61 maktab raqamli ekotizimi`,
     template: `%s | ${PLATFORM_INFO.shortName}`,
   },
-  description: PLATFORM_INFO.subtitle,
+  description:
+    "61 ta maktab, minglab yoshlar va yagona maqsad — Baliqchi tumani kelajagini birgalikda yaratish.",
 };
 
 export default async function RootLayout({
@@ -34,8 +32,8 @@ export default async function RootLayout({
   const userCtx = await getCurrentUserContext();
 
   return (
-    <html lang="uz" suppressHydrationWarning className={`${inter.variable} ${jakarta.variable}`}>
-      <body className="min-h-screen flex flex-col antialiased">
+    <html lang="uz" suppressHydrationWarning className={inter.variable}>
+      <body className="min-h-screen flex flex-col bg-[#F5F8FF] text-[#172033] dark:bg-[#0B1224] dark:text-slate-100 antialiased">
         <Providers>
           <Navbar userCtx={userCtx} />
           <main className="flex-1">{children}</main>

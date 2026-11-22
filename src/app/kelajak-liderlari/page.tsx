@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { Award, School, Sparkles } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { Badge, Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { getCoordinators } from "@/lib/data/queries";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { Badge, Card } from "@/core/ui/primitives/card";
+import { Button } from "@/core/ui/primitives/button";
+import { getCoordinators } from "@/core/db/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

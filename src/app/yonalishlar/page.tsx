@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { PageHeader } from "@/components/shared/empty-state";
-import { Card, CardContent } from "@/components/ui/card";
-import { DirectionIcon, getDirectionStyle } from "@/components/shared/direction-icon";
-import { getDirections } from "@/lib/data/queries";
+import { PageHeader } from "@/core/ui/shared/empty-state";
+import { Card, CardContent } from "@/core/ui/primitives/card";
+import { DirectionIcon, getDirectionStyle } from "@/core/ui/shared/direction-icon";
+import { getDirections } from "@/core/db/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

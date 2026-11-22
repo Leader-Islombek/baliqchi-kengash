@@ -1,5 +1,5 @@
-import { PageHeader } from "@/components/shared/empty-state";
-import { LoginForm } from "@/components/features/auth/auth-forms";
+import { PageHeader } from "@/core/ui/shared/empty-state";
+import { LoginForm } from "@/modules/accounts/components/auth-forms";
 
 export const metadata = {
   title: "Tizimga kirish",

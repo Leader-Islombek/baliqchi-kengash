@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { Award, Building2, CheckCircle2, Compass, Layers, Shield, Users, Vote } from "lucide-react";
-import { PageHeader } from "@/components/shared/empty-state";
-import { Badge, Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { OFFICIAL_CLUBS_LIST, OFFICIAL_DIRECTIONS, PLATFORM_INFO } from "@/lib/constants/official-data";
+import { PageHeader } from "@/core/ui/shared/empty-state";
+import { Badge, Card, CardContent } from "@/core/ui/primitives/card";
+import { Button } from "@/core/ui/primitives/button";
+import { OFFICIAL_CLUBS_LIST, OFFICIAL_DIRECTIONS, PLATFORM_INFO } from "@/core/config/official-data";
 
 export const metadata = {
   title: "Platforma haqida",

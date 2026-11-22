@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Award, Shield, Users } from "lucide-react";
-import { PageHeader } from "@/components/shared/empty-state";
-import { Badge, Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { GroupWorkspace } from "@/components/features/groups/group-chat";
-import { getCurrentUserContext, getGroupDetails } from "@/lib/data/queries";
+import { PageHeader } from "@/core/ui/shared/empty-state";
+import { Badge, Card } from "@/core/ui/primitives/card";
+import { Button } from "@/core/ui/primitives/button";
+import { GroupWorkspace } from "@/modules/groups/components/group-chat";
+import { getCurrentUserContext, getGroupDetails } from "@/core/db/queries";
 
 export const dynamic = "force-dynamic";
 

@@ -2,12 +2,12 @@ import Link from "next/link";
 import {
   ArrowRight,
   Award,
+  BookOpen,
+  Building2,
   Calendar,
   CheckCircle2,
   Compass,
   Flame,
-  Heart,
-  Layers,
   Megaphone,
   Rocket,
   School,
@@ -17,19 +17,23 @@ import {
   Users,
   Vote,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge, Card, CardContent } from "@/components/ui/card";
-import { ProgressBar } from "@/components/ui/fields";
-import { AnimatedCounter } from "@/components/shared/animated-counter";
-import { CountdownTimer } from "@/components/shared/countdown-timer";
-import { DirectionIcon, getDirectionStyle } from "@/components/shared/direction-icon";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ProjectCard } from "@/components/shared/project-card";
-import { FadeInSection } from "@/components/features/home/home-motion";
-import { PLATFORM_INFO } from "@/lib/constants/official-data";
+import { Button } from "@/core/ui/primitives/button";
+import { Badge, Card, CardContent } from "@/core/ui/primitives/card";
+import { ProgressBar } from "@/core/ui/primitives/fields";
+import { CountdownTimer } from "@/core/ui/shared/countdown-timer";
+import { DirectionIcon, getDirectionStyle } from "@/core/ui/shared/direction-icon";
+import { EmptyState } from "@/core/ui/shared/empty-state";
+import { ProjectCard } from "@/modules/projects/components/project-card";
+import { VoteButton } from "@/modules/voting/components/vote-button";
+import { Reveal, StaggerGrid, StaggerItem } from "@/core/ui/shared/motion-primitives";
+import { Perspective3DGrid, Tilt3DCard } from "@/core/ui/shared/scene-3d";
+import { HeroSection } from "@/modules/home/components/hero-section";
+import { SchoolsPreview } from "@/modules/home/components/schools-preview";
+import { PLATFORM_INFO } from "@/core/config/official-data";
 import {
   getActiveVotingData,
   getAnnouncements,
+  getCoordinators,
   getCurrentUserContext,
   getDirections,
   getEvents,
@@ -37,495 +41,745 @@ import {
   getProjects,
   getRecentProjectUpdates,
   getSchoolRankings,
-} from "@/lib/data/queries";
-import { formatUzDate } from "@/lib/utils";
+  getSchools,
+} from "@/core/db/queries";
+import { formatUzDate } from "@/core/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  const userCtx = await getCurrentUserContext();
+
   const [
-    userCtx,
     stats,
     directions,
+    schools,
     votingData,
+    featuredProjects,
     inProgressProjects,
-    completedProjects,
     recentUpdates,
+    coordinators,
     topRankings,
     announcements,
     events,
   ] = await Promise.all([
-    getCurrentUserContext(),
     getPlatformStats(),
     getDirections(),
-    getActiveVotingData(),
+    getSchools(),
+    getActiveVotingData(userCtx?.user.id),
+    getProjects({ limit: 6 }),
     getProjects({ status: ["in_progress", "approved"], limit: 3 }),
-    getProjects({ status: "completed", limit: 3 }),
     getRecentProjectUpdates(4),
+    getCoordinators(),
     getSchoolRankings("overall", 6),
     getAnnouncements(3),
     getEvents(3),
   ]);
 
-  const statItems = [
-    { label: "Maktablar", value: stats.schoolsCount, icon: School, color: "text-blue-400" },
-    { label: "Ro‘yxatdan o‘tgan o‘quvchilar", value: stats.registeredStudentsCount, icon: Users, color: "text-sky-400" },
-    { label: "Kengash a’zolari", value: stats.councilMembersCount, icon: ShieldCheck, color: "text-teal-400" },
-    { label: "Koordinatorlar", value: stats.coordinatorsCount, icon: Compass, color: "text-indigo-400" },
-    { label: "Loyihalar", value: stats.totalProjectsCount, icon: Layers, color: "text-cyan-400" },
-    { label: "Amalga oshirilgan", value: stats.completedProjectsCount, icon: CheckCircle2, color: "text-emerald-400" },
-    { label: "O‘tkazilgan tadbirlar", value: stats.eventsCount, icon: Calendar, color: "text-amber-400" },
-  ];
+  const districtLeader = coordinators.find((c) => c.role === "district_leader");
+  const schoolLeaders = coordinators.filter((c) => c.role === "school_leader");
+  const districtCoords = coordinators.filter((c) => c.role === "district_coordinator");
 
   return (
     <div className="flex flex-col">
       {/* ================================================================ */}
-      {/* 1. HERO SECTION */}
+      {/* 1 & 2 & 3. HERO SECTION + ANIMATED REAL STATISTICS */}
       {/* ================================================================ */}
-      <section className="bk-hero-bg relative overflow-hidden border-b border-white/10">
-        <div className="bk-grid-bg absolute inset-0 opacity-45" />
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12">
-            <div className="lg:col-span-7 space-y-6">
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/10 px-3.5 py-1.5 text-xs font-semibold text-sky-300 backdrop-blur-md">
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Baliqchi tumani • Andijon viloyati • 61 ta maktab</span>
+      <HeroSection
+        stats={stats}
+        activeWeek={votingData.activeWeek}
+        totalVotesInWeek={votingData.totalVotesInWeek}
+        isAuthenticated={Boolean(userCtx)}
+      />
+
+      {/* ================================================================ */}
+      {/* 4. KENGASH HAQIDA (ABOUT THE COUNCIL) */}
+      {/* ================================================================ */}
+      <section
+        id="kengash-haqida"
+        className="scroll-mt-16 bg-white dark:bg-[#0B1224] py-16 lg:py-22 border-b border-[#DCE5F5] dark:border-[#22345A]"
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
+              <div className="lg:col-span-5 space-y-4">
+                <Badge className="border-[#2563EB]/25 bg-[#2563EB]/10 text-[#2563EB] dark:text-[#38BDF8]">
+                  <BookOpen className="h-3.5 w-3.5" />
+                  Kengash haqida
+                </Badge>
+                <h2 className="font-display text-3xl font-extrabold text-[#172033] dark:text-white sm:text-4xl leading-tight">
+                  61 ta maktab yoshlarining yagona tashabbus platformasi
+                </h2>
+                <p className="text-base leading-relaxed text-[#64748B] dark:text-slate-300">
+                  Platforma {PLATFORM_INFO.decreeRef} asosida faoliyat yuritib, “Tengdosh-tengdoshga”
+                  tamoyili orqali har bir o‘quvchining g‘oyasini real loyihaga aylantirish uchun
+                  yaratilgan.
+                </p>
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <Link href="/haqida">
+                    <Button variant="primary" size="md">
+                      Batafsil tanishish
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/nizom">
+                    <Button variant="outline" size="md">
+                      Rasmiy Nizom (10 bob)
+                    </Button>
+                  </Link>
+                </div>
               </div>
 
-              <h1 className="font-display text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl leading-[1.08]">
-                {PLATFORM_INFO.name}
-                <span className="mt-2 block bg-gradient-to-r from-sky-400 via-blue-400 to-teal-300 bg-clip-text text-transparent">
-                  {PLATFORM_INFO.slogan}
-                </span>
-              </h1>
+              <StaggerGrid className="lg:col-span-7 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {[
+                  {
+                    icon: Building2,
+                    color: "bg-[#2563EB]/10 text-[#2563EB] dark:text-[#38BDF8]",
+                    title: "Ikki darajali tizim",
+                    desc: "Tuman Kengashi (1 lider + 7 koordinator) va 61 ta maktabning mustaqil profillari.",
+                  },
+                  {
+                    icon: Vote,
+                    color: "bg-[#10B981]/10 text-[#10B981]",
+                    title: "Shaffof ovoz berish",
+                    desc: "Har bir o‘quvchi haftasiga barcha 7 yo‘nalish bo‘yicha 1 ta adolatli ovoz beradi.",
+                  },
+                  {
+                    icon: ShieldCheck,
+                    color: "bg-[#38BDF8]/15 text-[#0284C7] dark:text-[#38BDF8]",
+                    title: "Real monitoring",
+                    desc: "G‘olib loyihalar tuman darajasida ko‘rib chiqilib, bajarilish foizi ochiq kuzatiladi.",
+                  },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <StaggerItem key={item.title}>
+                      <Card className="h-full p-6 rounded-3xl hover:-translate-y-1 hover:border-[#3B82F6]/40 hover:shadow-lg">
+                        <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl ${item.color}`}>
+                          <Icon className="h-6 w-6" />
+                        </div>
+                        <h3 className="font-display text-base font-bold text-[#172033] dark:text-white">
+                          {item.title}
+                        </h3>
+                        <p className="mt-2 text-xs leading-relaxed text-[#64748B] dark:text-slate-400">
+                          {item.desc}
+                        </p>
+                      </Card>
+                    </StaggerItem>
+                  );
+                })}
+              </StaggerGrid>
+            </div>
+          </Reveal>
+        </div>
+      </section>
 
-              <p className="max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
-                {PLATFORM_INFO.subtitle}
-              </p>
+      {/* ================================================================ */}
+      {/* 5. YANGILIKLAR VA TADBIRLAR TAQVIMI (TEPAROQQA OLIB CHIQILDI) */}
+      {/* ================================================================ */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+        <Reveal>
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#4F46E5]/10 text-[#4F46E5] dark:text-[#22D3EE]">
+                    <Megaphone className="h-5 w-5" />
+                  </div>
+                  <h2 className="font-display text-2xl font-extrabold text-[#111827] dark:text-white">
+                    So‘nggi yangiliklar
+                  </h2>
+                </div>
+                <Link href="/yangiliklar" className="text-sm font-bold text-[#4F46E5] dark:text-[#22D3EE] hover:underline">
+                  Barchasi →
+                </Link>
+              </div>
 
-              <div className="flex flex-wrap items-center gap-3 pt-2">
+              {announcements.length > 0 ? (
+                <div className="space-y-4">
+                  {announcements.map((item) => (
+                    <Link key={item.id} href={`/yangiliklar/${item.slug}`} className="block group">
+                      <Card className="p-5 rounded-2xl hover:border-[#4F46E5]/50 hover:-translate-y-0.5">
+                        <div className="text-xs font-medium text-[#5B677F]">
+                          {formatUzDate(item.published_at)} •{" "}
+                          {item.school ? `${item.school.school_number}-maktab` : "Tuman miqyosida"}
+                        </div>
+                        <h3 className="mt-1.5 font-display text-base font-bold text-[#111827] dark:text-white group-hover:text-[#4F46E5] dark:group-hover:text-[#22D3EE] transition-colors">
+                          {item.title}
+                        </h3>
+                        {item.excerpt && (
+                          <p className="mt-1.5 text-sm text-[#5B677F] dark:text-slate-400 line-clamp-2">
+                            {item.excerpt}
+                          </p>
+                        )}
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<Megaphone className="h-6 w-6" />}
+                  title="Hozircha yangiliklar e’lon qilinmagan"
+                  description="Tuman va maktab Kelajak Liderlari yangilik joylashi bilan shu yerda aks etadi."
+                  actionHref="/yangiliklar"
+                  actionLabel="Yangiliklar bo‘limi"
+                />
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#10B981]/10 text-[#10B981]">
+                    <Calendar className="h-5 w-5" />
+                  </div>
+                  <h2 className="font-display text-2xl font-extrabold text-[#111827] dark:text-white">
+                    Tadbirlar taqvimi
+                  </h2>
+                </div>
+                <Link href="/tadbirlar" className="text-sm font-bold text-[#10B981] hover:underline">
+                  Barchasi →
+                </Link>
+              </div>
+
+              {events.length > 0 ? (
+                <div className="space-y-4">
+                  {events.map((ev) => (
+                    <Link key={ev.id} href={`/tadbirlar/${ev.slug}`} className="block group">
+                      <Card className="p-5 rounded-2xl hover:border-[#10B981]/50 hover:-translate-y-0.5">
+                        <div className="flex items-center justify-between gap-2 text-xs text-[#5B677F]">
+                          <span>{formatUzDate(ev.starts_at, true)}</span>
+                          <span className="font-semibold text-[#10B981] truncate">{ev.location}</span>
+                        </div>
+                        <h3 className="mt-1.5 font-display text-base font-bold text-[#111827] dark:text-white group-hover:text-[#10B981] transition-colors">
+                          {ev.title}
+                        </h3>
+                        <p className="mt-1.5 text-sm text-[#5B677F] dark:text-slate-400 line-clamp-2">
+                          {ev.description}
+                        </p>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<Calendar className="h-6 w-6" />}
+                  title="Rejalashtirilgan tadbirlar kutilmoqda"
+                  description="61 ta maktab va tuman miqyosidagi tadbirlar shu bo‘limda ko‘rinadi."
+                  actionHref="/tadbirlar"
+                  actionLabel="Tadbirlar sahifasi"
+                />
+              )}
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ================================================================ */}
+      {/* 6. 7 TA FAOLIYAT YO'NALISHI (FAQAT RASMIY 7 TA YO'NALISH) */}
+      {/* ================================================================ */}
+      <section className="bg-white dark:bg-[#0D162B] border-y border-[#DCE5F5] dark:border-[#22345A] py-16 lg:py-22">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <Badge className="mb-2 border-[#4F46E5]/25 bg-[#4F46E5]/10 text-[#4F46E5] dark:text-[#22D3EE]">
+                  365-son buyruq Nizomi asosida
+                </Badge>
+                <h2 className="font-display text-3xl font-extrabold text-[#111827] dark:text-white sm:text-4xl">
+                  7 ta faoliyat yo‘nalishi
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm sm:text-base text-[#5B677F] dark:text-slate-400">
+                  Har bir yo‘nalishda tuman koordinatori va 61 ta maktab koordinatorlari jamoaviy ishlaydi.
+                </p>
+              </div>
+              <Link href="/yonalishlar">
+                <Button variant="outline" size="sm">
+                  Barcha yo‘nalishlar
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </Reveal>
+
+          <StaggerGrid className="mt-9 flex flex-wrap justify-center gap-4">
+            {directions.map((dir) => {
+              const st = getDirectionStyle(dir.accent_color);
+              return (
+                <StaggerItem
+                  key={dir.id}
+                  className="w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(25%-0.75rem)]"
+                >
+                  <Tilt3DCard glowColor="rgba(79, 70, 229, 0.16)" maxTilt={6}>
+                    <Link href={`/yonalishlar/${dir.slug}`} className="group block h-full">
+                      <Card className="h-full overflow-hidden rounded-3xl hover:border-[#4F46E5]/50 hover:shadow-xl hover:shadow-[#4F46E5]/15">
+                        <div className={`h-1.5 w-full bg-gradient-to-r ${st.gradient}`} />
+                        <CardContent className="p-5 flex flex-col h-full">
+                          <div className={`mb-3.5 inline-flex w-fit rounded-2xl p-3 ${st.bg} ${st.text} transition-transform duration-200 group-hover:scale-110`}>
+                            <DirectionIcon name={dir.icon_name} className="h-5 w-5" />
+                          </div>
+                          <h3 className="font-display text-base font-bold text-[#111827] dark:text-white group-hover:text-[#4F46E5] dark:group-hover:text-[#22D3EE] transition-colors">
+                            {dir.name}
+                          </h3>
+                          <p className="mt-2 text-xs leading-relaxed text-[#5B677F] dark:text-slate-400 line-clamp-3 flex-1">
+                            {dir.description}
+                          </p>
+                          <div className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-[#4F46E5] dark:text-[#22D3EE]">
+                            Batafsil
+                            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  </Tilt3DCard>
+                </StaggerItem>
+              );
+            })}
+          </StaggerGrid>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* 7. SARALANGAN LOYIHALAR (FEATURED PROJECTS) */}
+      {/* ================================================================ */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-22">
+        <div>
+          <Reveal>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <Badge className="mb-2 border-[#10B981]/30 bg-[#10B981]/10 text-[#059669] dark:text-[#34D399]">
+                  <Rocket className="h-3.5 w-3.5" />
+                  O‘quvchilar tashabbuslari
+                </Badge>
+                <h2 className="font-display text-3xl font-extrabold text-[#172033] dark:text-white sm:text-4xl">
+                  Saralangan loyihalar
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm sm:text-base text-[#64748B] dark:text-slate-400">
+                  61 ta maktabdan yuborilgan va moderatsiyadan o‘tgan eng dolzarb g‘oyalar hamda amalga oshirilayotgan loyihalar.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <Link href="/loyihalar">
-                  <Button size="lg" variant="primary" className="shadow-lg shadow-blue-600/30">
-                    Loyihalarni ko‘rish
+                  <Button variant="primary" size="sm">
+                    Barcha loyihalar
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
-                {userCtx ? (
-                  <Link href="/kabinet">
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="border-white/20 bg-white/10 text-white hover:bg-white/20"
-                    >
-                      Shaxsiy kabinet
-                    </Button>
-                  </Link>
-                ) : (
-                  <Link href="/royxatdan-otish">
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="border-white/20 bg-white/10 text-white hover:bg-white/20"
-                    >
-                      Platformaga qo‘shilish
-                    </Button>
-                  </Link>
-                )}
-                <Link href="/ovoz-berish">
-                  <Button size="lg" variant="teal">
-                    <Vote className="h-4 w-4" />
-                    Haftalik ovoz berish
+                <Link href="/amalga-oshirilayotgan">
+                  <Button variant="outline" size="sm">
+                    Monitoring
                   </Button>
                 </Link>
               </div>
-
-              <p className="text-xs text-slate-400">
-                Huquqiy asos:{" "}
-                <Link href="/nizom" className="text-sky-300 underline-offset-4 hover:underline">
-                  {PLATFORM_INFO.decreeRef}
-                </Link>
-              </p>
             </div>
+          </Reveal>
 
-            {/* Right Visual Ecosystem Card */}
-            <div className="lg:col-span-5">
-              <div className="rounded-3xl border border-white/15 bg-white/[0.06] p-6 backdrop-blur-xl shadow-2xl">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-sky-300">
-                      Yagona Raqamli Ekotizim
-                    </div>
-                    <div className="mt-1 font-display text-lg font-bold text-white">
-                      Tashkiliy Tuzilma
-                    </div>
-                  </div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-500/20 px-3 py-1 text-xs font-semibold text-teal-300">
-                    <span className="h-2 w-2 rounded-full bg-teal-400 animate-pulse" />
-                    Faol tizim
-                  </span>
+          {featuredProjects.length > 0 ? (
+            <StaggerGrid className="mt-9 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {featuredProjects.slice(0, 6).map((project) => (
+                <StaggerItem key={project.id}>
+                  <ProjectCard project={project} />
+                </StaggerItem>
+              ))}
+            </StaggerGrid>
+          ) : (
+            <div className="mt-9">
+              <EmptyState
+                icon={<Rocket className="h-7 w-7" />}
+                title="Hozircha ommaviy loyihalar e’lon qilinmagan"
+                description="Koordinatorlar va Kelajak Liderlari yangi loyiha joylab, moderatsiyadan o‘tkazishi bilan shu yerda aks etadi."
+                actionHref="/loyihalar/yangi"
+                actionLabel="Yangi loyiha yaratish"
+              />
+            </div>
+          )}
+
+          {/* Jarayondagi loyihalardan tezkor monitoring lentasi */}
+          {inProgressProjects.length > 0 && (
+            <Reveal delay={0.1} className="mt-10">
+              <div className="rounded-3xl border border-[#DCE5F5] dark:border-[#22345A] bg-[#F5F8FF] dark:bg-[#111C35] p-6">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                  <h3 className="font-display text-lg font-bold text-[#172033] dark:text-white flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-[#10B981]" />
+                    Hozir amalga oshirilayotgan ishlar
+                  </h3>
+                  <Link href="/amalga-oshirilayotgan" className="text-xs font-bold text-[#2563EB] dark:text-[#38BDF8] hover:underline">
+                    Barcha jarayonlar →
+                  </Link>
                 </div>
-
-                <div className="mt-5 space-y-3">
-                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <div>
-                      <div className="text-xs text-sky-300">Tuman darajasi</div>
-                      <div className="text-sm font-semibold text-white">
-                        1 Tuman Kelajak Lideri • 7 Tuman Koordinatori
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {inProgressProjects.map((proj) => (
+                    <Link
+                      key={proj.id}
+                      href={`/loyihalar/${proj.slug}`}
+                      className="rounded-2xl border border-[#DCE5F5] dark:border-[#22345A] bg-white dark:bg-[#0B1224] p-4 hover:border-[#3B82F6]/50 transition-colors"
+                    >
+                      <div className="text-xs font-semibold text-[#2563EB] dark:text-[#38BDF8]">
+                        {proj.direction?.name} • {proj.school ? `${proj.school.school_number}-maktab` : "Tuman"}
                       </div>
-                    </div>
-                    <Award className="h-5 w-5 text-sky-400 shrink-0" />
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <div>
-                      <div className="text-xs text-teal-300">Maktab darajasi</div>
-                      <div className="text-sm font-semibold text-white">
-                        61 ta Maktab Kengashi • Har birida 8+ a’zo
+                      <div className="mt-1 font-display text-sm font-bold text-[#172033] dark:text-white line-clamp-1">
+                        {proj.title}
                       </div>
-                    </div>
-                    <School className="h-5 w-5 text-teal-400 shrink-0" />
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <div>
-                      <div className="text-xs text-blue-300">Ovoz berish qoidasi</div>
-                      <div className="text-sm font-semibold text-white">
-                        Haftasiga 7 yo‘nalish bo‘yicha jami 1 ta adolatli ovoz
+                      <div className="mt-3">
+                        <ProgressBar value={proj.progress_percent} showLabel />
                       </div>
-                    </div>
-                    <Vote className="h-5 w-5 text-blue-400 shrink-0" />
-                  </div>
-                </div>
-
-                {votingData.activeWeek ? (
-                  <div className="mt-5 rounded-2xl border border-sky-400/30 bg-sky-500/10 p-4">
-                    <div className="mb-2 flex items-center justify-between text-xs font-semibold text-sky-200">
-                      <span>Faol ovoz berish: {votingData.activeWeek.title}</span>
-                      <span>{votingData.totalVotesInWeek} ovoz</span>
-                    </div>
-                    <CountdownTimer endsAt={votingData.activeWeek.ends_at} />
-                  </div>
-                ) : (
-                  <div className="mt-5 flex items-center justify-between rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-xs text-slate-300">
-                    <span>8 ta boshqaruv guruhi • 7 ta rasmiy klub</span>
-                    <Link href="/haqida" className="font-semibold text-sky-300 hover:underline">
-                      Tuzilmani ko‘rish →
                     </Link>
+                  ))}
+                </div>
+                {recentUpdates.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-[#DCE5F5] dark:border-[#22345A] grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {recentUpdates.slice(0, 2).map((u) => (
+                      <div key={u.id} className="text-xs text-[#64748B] dark:text-slate-300 flex items-center justify-between gap-2">
+                        <span className="truncate">
+                          <strong className="text-[#10B981]">{u.progress_percent}%</strong> — {u.project?.title}: {u.title}
+                        </span>
+                        <span className="shrink-0 text-[11px]">{formatUzDate(u.created_at)}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-
-          {/* ================================================================ */}
-          {/* 2. HAQIQIY STATISTIKALAR (Hech qachon soxta raqam yo'q!) */}
-          {/* ================================================================ */}
-          <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
-            {statItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-md transition-colors hover:bg-white/[0.09]"
-                >
-                  <Icon className={`h-5 w-5 ${item.color}`} />
-                  <div className="mt-2 font-display text-2xl font-bold text-white">
-                    <AnimatedCounter value={item.value} />
-                  </div>
-                  <div className="mt-0.5 text-xs text-slate-300/90 leading-snug">
-                    {item.label}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {!stats.isDatabaseConnected && (
-            <p className="mt-3 text-xs text-sky-200/75">
-              * Haqiqiy ko‘rsatkichlar Supabase bazasi ulangandan so‘ng avtomatik real vaqtda hisoblanadi (demo raqamlar qo‘llanilmaydi).
-            </p>
+            </Reveal>
           )}
         </div>
       </section>
 
       {/* ================================================================ */}
-      {/* 3. RASMIY 7 TA YO'NALISH */}
+      {/* 7. HAFTALIK OVOZ BERISH BO'LIMI (DARK BAND) */}
       {/* ================================================================ */}
-      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <FadeInSection>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <Badge className="mb-2 border-blue-500/25 bg-blue-500/10 text-blue-600 dark:text-sky-400">
-                365-son buyruq Nizomi asosida
-              </Badge>
-              <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-                7 ta rasmiy yo‘nalish
-              </h2>
-              <p className="mt-1.5 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-                Har bir maktabda va tuman darajasida alohida koordinator hamda boshqaruv guruhi faoliyat yuritadi.
-              </p>
-            </div>
-            <Link href="/yonalishlar">
-              <Button variant="outline" size="sm">
-                Barcha yo‘nalishlar
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {directions.map((dir) => {
-              const st = getDirectionStyle(dir.accent_color);
-              return (
-                <Link key={dir.id} href={`/yonalishlar/${dir.slug}`} className="group">
-                  <Card className="h-full overflow-hidden hover:-translate-y-1 hover:border-blue-500/40 hover:shadow-lg">
-                    <div className={`h-1.5 w-full bg-gradient-to-r ${st.gradient}`} />
-                    <CardContent className="p-5">
-                      <div className={`mb-3 inline-flex rounded-xl p-2.5 ${st.bg} ${st.text}`}>
-                        <DirectionIcon name={dir.icon_name} className="h-5 w-5" />
-                      </div>
-                      <h3 className="font-display text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-sky-400 transition-colors">
-                        {dir.name}
-                      </h3>
-                      <p className="mt-1.5 text-xs leading-relaxed text-slate-600 dark:text-slate-400 line-clamp-3">
-                        {dir.description}
-                      </p>
-                      <div className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-sky-400">
-                        Batafsil
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-
-            {/* 8th card: Kelajak Liderlari highlight */}
-            <Link href="/kelajak-liderlari" className="group">
-              <Card className="h-full overflow-hidden border-blue-500/30 bg-gradient-to-br from-[#0b172e] to-[#132952] text-white hover:-translate-y-1 hover:shadow-xl">
-                <div className="h-1.5 w-full bg-gradient-to-r from-sky-400 to-teal-400" />
-                <CardContent className="p-5">
-                  <div className="mb-3 inline-flex rounded-xl bg-white/10 p-2.5 text-sky-300">
-                    <Award className="h-5 w-5" />
-                  </div>
-                  <h3 className="font-display text-base font-bold text-white">
-                    Kelajak Liderlari
-                  </h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-300">
-                    1 nafar Tuman Kelajak Lideri va 61 nafar Maktab Kelajak Liderlari jamoasi.
-                  </p>
-                  <div className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-sky-300">
-                    Liderlar ro‘yxati
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-        </FadeInSection>
-      </section>
-
-      {/* ================================================================ */}
-      {/* 4. HAFTANING ENG YAXSHI LOYIHALARI (OVOZ BERISH VITRINASI) */}
-      {/* ================================================================ */}
-      <section className="border-y border-slate-200/80 dark:border-slate-800/80 bg-slate-100/60 dark:bg-[#081224] py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeInSection>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <Badge className="mb-2 border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300">
+      <section className="bk-dark-band relative overflow-hidden py-16 lg:py-22 text-white">
+        <div className="bk-grid-bg absolute inset-0 opacity-30" />
+        <Perspective3DGrid />
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-2xl">
+                <Badge className="mb-3 border-[#38BDF8]/35 bg-[#38BDF8]/15 text-[#38BDF8]">
                   <Flame className="h-3.5 w-3.5" />
                   Haftalik adolatli ovoz berish
                 </Badge>
-                <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-                  Haftaning eng yaxshi loyihalari
+                <h2 className="font-display text-3xl font-extrabold text-white sm:text-4xl">
+                  Eng yaxshi loyihani birgalikda tanlang
                 </h2>
-                <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
-                  Har bir o‘quvchi haftasiga barcha 7 yo‘nalish bo‘yicha jami 1 ta loyihaga ovoz bera oladi.
+                <p className="mt-2 text-sm sm:text-base text-slate-300">
+                  Har bir o‘quvchi haftasiga barcha 7 ta yo‘nalish bo‘yicha{" "}
+                  <strong className="text-white">jami 1 ta ovoz</strong> bera oladi. Natijalar server tomonida atomar himoyalanadi.
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                {votingData.activeWeek && <CountdownTimer endsAt={votingData.activeWeek.ends_at} />}
                 <Link href="/ovoz-berish">
-                  <Button variant="primary" size="sm">
+                  <Button variant="teal" size="md">
                     <Vote className="h-4 w-4" />
-                    Ovoz berish sahifasi
+                    Ovoz berish markazi
                   </Button>
                 </Link>
+              </div>
+            </div>
+          </Reveal>
+
+          {votingData.activeWeek && votingData.nominees.length > 0 ? (
+            <StaggerGrid className="mt-9 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {votingData.nominees.slice(0, 3).map((proj, idx) => {
+                const share =
+                  votingData.totalVotesInWeek > 0
+                    ? Math.round((proj.votes_count / votingData.totalVotesInWeek) * 100)
+                    : 0;
+                return (
+                  <StaggerItem key={proj.id}>
+                    <div className="flex h-full flex-col justify-between rounded-3xl border border-white/15 bg-[#111C35]/85 p-6 backdrop-blur-md transition-all hover:border-[#38BDF8]/50">
+                      <div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="inline-flex items-center gap-1.5 font-bold text-[#38BDF8]">
+                            #{idx + 1} • {proj.direction?.name}
+                          </span>
+                          <span className="text-slate-400">
+                            {proj.school ? `${proj.school.school_number}-maktab` : "Tuman"}
+                          </span>
+                        </div>
+                        <Link
+                          href={`/loyihalar/${proj.slug}`}
+                          className="mt-2.5 block font-display text-lg font-bold text-white hover:text-[#38BDF8] transition-colors line-clamp-2"
+                        >
+                          {proj.title}
+                        </Link>
+                        <p className="mt-2 text-xs text-slate-300 line-clamp-2">{proj.goal}</p>
+
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between text-xs mb-1.5">
+                            <span className="font-semibold text-white">{proj.votes_count} ta ovoz</span>
+                            <span className="text-[#38BDF8] font-semibold">{share}%</span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#2563EB] via-[#38BDF8] to-[#10B981]"
+                              style={{ width: `${share}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between gap-2">
+                        <Link
+                          href={`/loyihalar/${proj.slug}`}
+                          className="text-xs font-semibold text-slate-300 hover:text-[#38BDF8]"
+                        >
+                          Tafsilot →
+                        </Link>
+                        <VoteButton
+                          projectId={proj.id}
+                          projectTitle={proj.title}
+                          directionName={proj.direction?.name}
+                          schoolName={proj.school ? `${proj.school.school_number}-maktab` : "Baliqchi tumani"}
+                          initialVotes={proj.votes_count}
+                          userVotedProjectId={votingData.userVotedProjectId}
+                          isAuthenticated={Boolean(userCtx)}
+                        />
+                      </div>
+                    </div>
+                  </StaggerItem>
+                );
+              })}
+            </StaggerGrid>
+          ) : (
+            <div className="mt-9 rounded-3xl border border-white/15 bg-[#111C35]/70 p-8 text-center">
+              <Vote className="mx-auto h-9 w-9 text-[#38BDF8]" />
+              <h3 className="mt-3 font-display text-lg font-bold text-white">
+                {votingData.activeWeek
+                  ? `“${votingData.activeWeek.title}” haftasi faol — nomzod loyihalar kutilmoqda`
+                  : "Navbatdagi haftalik ovoz berish tayyorlanmoqda"}
+              </h3>
+              <p className="mx-auto mt-1.5 max-w-xl text-sm text-slate-300">
+                Moderatsiyadan o‘tgan loyihalar joriy haftaga biriktirilishi bilan bu yerda jonli ovoz berish ochiladi.
+              </p>
+              <div className="mt-5 flex justify-center gap-3">
+                <Link href="/ovoz-berish">
+                  <Button variant="primary" size="sm">Ovoz berish sahifasi</Button>
+                </Link>
                 <Link href="/goliblar">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="border-white/20 bg-white/10 text-white hover:bg-white/20">
                     G‘oliblar arxivi
                   </Button>
                 </Link>
               </div>
             </div>
-
-            {votingData.nominees.length > 0 ? (
-              <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {votingData.nominees.slice(0, 3).map((project) => (
-                  <ProjectCard key={project.id} project={project} />
-                ))}
-              </div>
-            ) : (
-              <div className="mt-8">
-                <EmptyState
-                  icon={<Vote className="h-7 w-7" />}
-                  title="Joriy haftalik ovoz berish tez orada boshlanadi"
-                  description="Moderatsiyadan o‘tgan loyihalar joriy haftaga biriktirilishi bilan bu yerda real vaqtda ko‘rinadi."
-                  actionHref="/loyihalar"
-                  actionLabel="Barcha loyihalarni ko‘rish"
-                />
-              </div>
-            )}
-          </FadeInSection>
+          )}
         </div>
       </section>
 
       {/* ================================================================ */}
-      {/* 5. HOZIR AMALGA OSHIRILAYOTGAN ISHLAR (ENG KO'ZGA TASHLANADIGAN BO'LIM) */}
+      {/* 8. KELAJAK LIDERLARI BO'LIMI (FUTURE LEADERS) */}
       {/* ================================================================ */}
-      <section className="bk-hero-bg relative overflow-hidden py-16 lg:py-20 text-white">
-        <div className="bk-grid-bg absolute inset-0 opacity-35" />
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeInSection>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <Badge className="mb-2 border-teal-400/30 bg-teal-400/15 text-teal-300">
-                  <Rocket className="h-3.5 w-3.5" />
-                  Real natija va shaffof monitoring
-                </Badge>
-                <h2 className="font-display text-2xl font-bold text-white sm:text-3xl">
-                  Hozir amalga oshirilayotgan ishlar
-                </h2>
-                <p className="mt-1.5 max-w-2xl text-sm text-slate-300">
-                  Tuman darajasida tasdiqlangan loyihalarning bajarilish foizi, bosqichlari va so‘nggi yangilanishlari.
-                </p>
-              </div>
-              <Link href="/amalga-oshirilayotgan">
-                <Button variant="teal" size="sm">
-                  Barcha monitoringlar
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-22">
+        <Reveal>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <Badge className="mb-2 border-[#2563EB]/25 bg-[#2563EB]/10 text-[#2563EB] dark:text-[#38BDF8]">
+                <Award className="h-3.5 w-3.5" />
+                1 Tuman Lideri + 61 Maktab Lideri
+              </Badge>
+              <h2 className="font-display text-3xl font-extrabold text-[#172033] dark:text-white sm:text-4xl">
+                Kelajak Liderlari
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm sm:text-base text-[#64748B] dark:text-slate-400">
+                Har bir maktabning O‘quvchilar Kengashiga rahbarlik qiluvchi va o‘quvchilar ovozini tuman darajasiga olib chiquvchi yetakchilar.
+              </p>
             </div>
+            <Link href="/kelajak-liderlari">
+              <Button variant="outline" size="sm">
+                Barcha liderlar
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </Reveal>
 
-            {inProgressProjects.length > 0 ? (
-              <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-                {inProgressProjects.map((proj) => (
-                  <Link
-                    key={proj.id}
-                    href={`/loyihalar/${proj.slug}`}
-                    className="group rounded-2xl border border-white/15 bg-white/[0.06] p-5 backdrop-blur-md transition-all hover:border-sky-400/50 hover:bg-white/[0.1]"
-                  >
-                    <div className="flex items-center justify-between text-xs text-sky-300">
-                      <span>{proj.direction?.name}</span>
-                      <span>
-                        {proj.school ? `${proj.school.school_number}-maktab` : "Tuman"}
-                      </span>
-                    </div>
-                    <h3 className="mt-2 font-display text-lg font-bold text-white group-hover:text-sky-300 transition-colors">
-                      {proj.title}
-                    </h3>
-                    <p className="mt-1.5 text-sm text-slate-300 line-clamp-2">{proj.goal}</p>
-                    <div className="mt-5">
-                      <ProgressBar value={proj.progress_percent} showLabel />
-                    </div>
-                    <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
-                      <span>Yangilangan: {formatUzDate(proj.updated_at)}</span>
-                      <span className="font-semibold text-teal-300">Jarayonni ko‘rish →</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-8 rounded-2xl border border-white/15 bg-white/[0.05] p-8 text-center backdrop-blur-md">
-                <Rocket className="mx-auto h-9 w-9 text-sky-300" />
-                <h3 className="mt-3 font-display text-lg font-semibold text-white">
-                  Amalga oshirilayotgan loyihalar monitoringi tayyor
+        <div className="mt-9 grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <Reveal className="lg:col-span-5">
+            <Card className="h-full rounded-3xl border-[#2563EB]/30 bg-gradient-to-br from-[#0B1224] to-[#13254D] p-7 text-white flex flex-col justify-between">
+              <div>
+                <Badge className="border-[#38BDF8]/40 bg-[#38BDF8]/15 text-[#38BDF8]">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Tuman Kelajak Lideri
+                </Badge>
+                <h3 className="mt-4 font-display text-2xl font-extrabold">
+                  {districtLeader?.user
+                    ? `${districtLeader.user.first_name} ${districtLeader.user.last_name}`
+                    : "Tuman Kelajak Lideri tayinlanmoqda"}
                 </h3>
-                <p className="mx-auto mt-1.5 max-w-xl text-sm text-slate-300">
-                  Haftalik g‘olib deb topilgan va tuman darajasida tasdiqlangan loyihalar bu yerda bajarilish foizi hamda foto-hisobotlari bilan aks ettiriladi.
+                <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+                  61 nafar Maktab Kelajak Lideri va 7 nafar Tuman koordinatori faoliyatini muvofiqlashtiradi, haftalik g‘olib loyihalarni ko‘rib chiqadi.
                 </p>
               </div>
-            )}
-
-            {recentUpdates.length > 0 && (
-              <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
-                {recentUpdates.map((upd) => (
-                  <div
-                    key={upd.id}
-                    className="flex items-start justify-between gap-4 rounded-xl border border-white/10 bg-slate-950/40 p-4"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-teal-300">
-                        {upd.project?.title || "Loyiha yangilanishi"} • {upd.progress_percent}%
-                      </div>
-                      <div className="mt-0.5 text-sm font-semibold text-white truncate">
-                        {upd.title}
-                      </div>
-                      <p className="mt-1 text-xs text-slate-300 line-clamp-2">{upd.content}</p>
-                    </div>
-                    <span className="shrink-0 text-[11px] text-slate-400">
-                      {formatUzDate(upd.created_at)}
-                    </span>
-                  </div>
-                ))}
+              <div className="mt-6 pt-5 border-t border-white/10 flex items-center justify-between text-xs text-[#38BDF8]">
+                <span>Tasdiqlangan maktab liderlari: {schoolLeaders.length} / 61</span>
+                <Link href="/kelajak-liderlari" className="font-bold hover:underline">
+                  To‘liq tarkib →
+                </Link>
               </div>
+            </Card>
+          </Reveal>
+
+          <div className="lg:col-span-7">
+            {schoolLeaders.length > 0 ? (
+              <StaggerGrid className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                {schoolLeaders.slice(0, 6).map((sl) => (
+                  <StaggerItem key={sl.id}>
+                    <Link href={sl.school ? `/maktablar/${sl.school.slug}` : "/kelajak-liderlari"}>
+                      <Card className="p-4 rounded-2xl flex items-center gap-3.5 hover:border-[#3B82F6]/50 hover:-translate-y-0.5">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#2563EB]/10 font-display text-sm font-extrabold text-[#2563EB] dark:text-[#38BDF8]">
+                          {sl.school?.school_number || "L"}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate font-display text-sm font-bold text-[#172033] dark:text-white">
+                            {sl.user?.first_name} {sl.user?.last_name}
+                          </div>
+                          <div className="truncate text-xs text-[#64748B] dark:text-slate-400">
+                            {sl.school?.name || "Maktab Kelajak Lideri"}
+                          </div>
+                        </div>
+                      </Card>
+                    </Link>
+                  </StaggerItem>
+                ))}
+              </StaggerGrid>
+            ) : (
+              <EmptyState
+                icon={<Users className="h-7 w-7" />}
+                title="61 ta maktab Kelajak Liderlari shakllantirilmoqda"
+                description="Maktab Kelajak Liderlari ro‘yxatdan o‘tib Super Administrator tomonidan tasdiqlangach bu yerda ko‘rinadi."
+                actionHref="/royxatdan-otish"
+                actionLabel="Lider sifatida qo‘shilish"
+              />
             )}
-          </FadeInSection>
+          </div>
         </div>
       </section>
 
       {/* ================================================================ */}
-      {/* 6. FAOL MAKTABLAR REYTINGI (61 TA MAKTAB) */}
+      {/* 9. 61 TA MAKTAB KATALOGI PREVIEW (SCHOOL DIRECTORY PREVIEW) */}
       {/* ================================================================ */}
-      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <FadeInSection>
+      <section className="bg-white dark:bg-[#0D162B] border-y border-[#DCE5F5] dark:border-[#22345A] py-16 lg:py-22">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <div className="mb-8">
+              <Badge className="mb-2 border-[#10B981]/30 bg-[#10B981]/10 text-[#059669] dark:text-[#34D399]">
+                <School className="h-3.5 w-3.5" />
+                Baliqchi tumani • 61 ta maktab
+              </Badge>
+              <h2 className="font-display text-3xl font-extrabold text-[#172033] dark:text-white sm:text-4xl">
+                O‘z maktabingiz profilini toping
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm sm:text-base text-[#64748B] dark:text-slate-400">
+                Har bir maktabning mustaqil sahifasi: Kelajak Lideri, 7 ta koordinator, sinf vakillari, klublar va loyihalar.
+              </p>
+            </div>
+            <SchoolsPreview schools={schools} />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* 10. KOORDINATORLAR BO'LIMI (COORDINATORS SECTION) */}
+      {/* ================================================================ */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-22">
+        <Reveal>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <Badge className="mb-2 border-[#38BDF8]/35 bg-[#38BDF8]/10 text-[#0284C7] dark:text-[#38BDF8]">
+                <Compass className="h-3.5 w-3.5" />
+                7 ta yo‘nalish boshqaruvi
+              </Badge>
+              <h2 className="font-display text-3xl font-extrabold text-[#172033] dark:text-white sm:text-4xl">
+                Tuman yo‘nalish koordinatorlari
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm sm:text-base text-[#64748B] dark:text-slate-400">
+                Har bir tuman koordinatori o‘z yo‘nalishidagi 61 ta maktab koordinatorlari jamoasini va guruhini boshqaradi.
+              </p>
+            </div>
+            <Link href="/koordinatorlar">
+              <Button variant="outline" size="sm">
+                Barcha koordinatorlar
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </Reveal>
+
+        <StaggerGrid className="mt-9 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {directions.map((dir) => {
+            const assigned = districtCoords.find((c) => c.direction?.slug === dir.slug);
+            const st = getDirectionStyle(dir.accent_color);
+            return (
+              <StaggerItem key={dir.id}>
+                <Card className="p-5 rounded-2xl h-full hover:border-[#3B82F6]/40">
+                  <div className="flex items-center justify-between">
+                    <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold ${st.bg} ${st.text}`}>
+                      <DirectionIcon name={dir.icon_name} className="h-3.5 w-3.5" />
+                      {dir.short_name}
+                    </span>
+                    <ShieldCheck className={`h-4 w-4 ${assigned ? "text-[#10B981]" : "text-slate-300 dark:text-slate-700"}`} />
+                  </div>
+                  <div className="mt-3.5 font-display text-base font-bold text-[#172033] dark:text-white">
+                    {assigned?.user
+                      ? `${assigned.user.first_name} ${assigned.user.last_name}`
+                      : "Tayinlanishi kutilmoqda"}
+                  </div>
+                  <p className="mt-1 text-xs text-[#64748B] dark:text-slate-400">
+                    Tuman {dir.name.toLowerCase()} koordinatori
+                  </p>
+                </Card>
+              </StaggerItem>
+            );
+          })}
+        </StaggerGrid>
+      </section>
+
+      {/* ================================================================ */}
+      {/* 12. FAOL MAKTABLAR REYTINGI (SCHOOL ACTIVITY RANKING) */}
+      {/* ================================================================ */}
+      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-22">
+        <Reveal>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <Badge className="mb-2 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
                 <Trophy className="h-3.5 w-3.5" />
                 Ko‘p mezonli shaffof baholash
               </Badge>
-              <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+              <h2 className="font-display text-3xl font-extrabold text-[#172033] dark:text-white sm:text-4xl">
                 Faol maktablar reytingi
               </h2>
-              <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
-                Reyting amalga oshirilgan loyihalar, tadbirlar, hisobotlar va yo‘nalishlar faolligiga asoslanadi.
+              <p className="mt-2 max-w-2xl text-sm sm:text-base text-[#64748B] dark:text-slate-400">
+                Amalga oshirilgan loyihalar, tadbirlar, hisobotlar va yo‘nalishlar faolligi bo‘yicha 61 ta maktab natijalari.
               </p>
             </div>
-            <div className="flex gap-2">
-              <Link href="/reyting">
-                <Button variant="primary" size="sm">
-                  To‘liq reyting
-                </Button>
-              </Link>
-              <Link href="/maktablar">
-                <Button variant="outline" size="sm">
-                  61 ta maktab
-                </Button>
-              </Link>
-            </div>
+            <Link href="/reyting">
+              <Button variant="primary" size="sm">
+                To‘liq reyting
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
+        </Reveal>
 
-          {topRankings.length > 0 ? (
-            <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-              {topRankings.slice(0, 3).map((item, idx) => (
-                <Link
-                  key={item.id}
-                  href={`/maktablar/${item.school?.slug || item.school_id}`}
-                >
-                  <Card className="p-6 hover:border-blue-500/40 hover:shadow-lg">
+        {topRankings.length > 0 ? (
+          <StaggerGrid className="mt-9 grid grid-cols-1 gap-5 md:grid-cols-3">
+            {topRankings.slice(0, 3).map((item, idx) => (
+              <StaggerItem key={item.id}>
+                <Link href={`/maktablar/${item.school?.slug || item.school_id}`}>
+                  <Card className="h-full rounded-3xl p-6 hover:-translate-y-1 hover:border-[#3B82F6]/50 hover:shadow-xl">
                     <div className="flex items-center justify-between">
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-teal-500 font-display text-lg font-bold text-white">
+                      <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#10B981] font-display text-lg font-extrabold text-white shadow-md">
                         #{item.rank_position || idx + 1}
                       </span>
-                      <span className="font-display text-2xl font-extrabold text-blue-600 dark:text-sky-400">
+                      <span className="font-display text-2xl font-extrabold text-[#2563EB] dark:text-[#38BDF8]">
                         {item.total_score} ball
                       </span>
                     </div>
-                    <h3 className="mt-4 font-display text-lg font-bold text-slate-900 dark:text-white">
+                    <h3 className="mt-4 font-display text-lg font-bold text-[#172033] dark:text-white">
                       {item.school?.name || "Maktab"}
                     </h3>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#64748B] dark:text-slate-400">
                       <span>Yakunlangan: {item.metrics_breakdown?.completed_projects || 0}</span>
                       <span>•</span>
                       <span>Tadbirlar: {item.metrics_breakdown?.events_count || 0}</span>
@@ -534,187 +788,63 @@ export default async function HomePage() {
                     </div>
                   </Card>
                 </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-8">
-              <EmptyState
-                icon={<Trophy className="h-7 w-7" />}
-                title="61 ta maktab reytingi faoliyat boshlanishi bilan hisoblanadi"
-                description="Maktablar loyihalar, tadbirlar va hisobotlarni kiritishi bilan reyting avtomatik va shaffof shakllanadi."
-                actionHref="/maktablar"
-                actionLabel="61 ta maktab ro‘yxatini ko‘rish"
-              />
-            </div>
-          )}
-        </FadeInSection>
-      </section>
-
-      {/* ================================================================ */}
-      {/* 7. YANGILIKLAR VA TADBIRLAR */}
-      {/* ================================================================ */}
-      <section className="border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-100/60 dark:bg-[#081224] py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeInSection>
-            <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-              {/* Yangiliklar */}
-              <div>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2.5">
-                    <Megaphone className="h-5 w-5 text-blue-600 dark:text-sky-400" />
-                    <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white">
-                      So‘nggi yangiliklar
-                    </h2>
-                  </div>
-                  <Link href="/yangiliklar" className="text-sm font-semibold text-blue-600 dark:text-sky-400 hover:underline">
-                    Barchasi →
-                  </Link>
-                </div>
-
-                {announcements.length > 0 ? (
-                  <div className="space-y-4">
-                    {announcements.map((item) => (
-                      <Link key={item.id} href={`/yangiliklar/${item.slug}`} className="block">
-                        <Card className="p-5 hover:border-blue-500/40">
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            {formatUzDate(item.published_at)}
-                            {item.school ? ` • ${item.school.school_number}-maktab` : " • Tuman miqyosida"}
-                          </div>
-                          <h3 className="mt-1 font-display text-base font-bold text-slate-900 dark:text-white">
-                            {item.title}
-                          </h3>
-                          {item.excerpt && (
-                            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
-                              {item.excerpt}
-                            </p>
-                          )}
-                        </Card>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={<Megaphone className="h-6 w-6" />}
-                    title="Hozircha yangiliklar joylanmagan"
-                    description="Tuman va maktab Kelajak Liderlari yangilik va e’lonlarni joylaganda shu yerda aks etadi."
-                    actionHref="/yangiliklar"
-                    actionLabel="Yangiliklar bo‘limi"
-                  />
-                )}
-              </div>
-
-              {/* Tadbirlar */}
-              <div>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2.5">
-                    <Calendar className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                    <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white">
-                      Tadbirlar
-                    </h2>
-                  </div>
-                  <Link href="/tadbirlar" className="text-sm font-semibold text-teal-600 dark:text-teal-400 hover:underline">
-                    Barchasi →
-                  </Link>
-                </div>
-
-                {events.length > 0 ? (
-                  <div className="space-y-4">
-                    {events.map((ev) => (
-                      <Link key={ev.id} href={`/tadbirlar/${ev.slug}`} className="block">
-                        <Card className="p-5 hover:border-teal-500/40">
-                          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                            <span>{formatUzDate(ev.starts_at, true)}</span>
-                            <span className="font-medium text-teal-600 dark:text-teal-400">
-                              {ev.location}
-                            </span>
-                          </div>
-                          <h3 className="mt-1 font-display text-base font-bold text-slate-900 dark:text-white">
-                            {ev.title}
-                          </h3>
-                          <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
-                            {ev.description}
-                          </p>
-                        </Card>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={<Calendar className="h-6 w-6" />}
-                    title="Rejalashtirilgan tadbirlar kutilmoqda"
-                    description="61 ta maktab va tuman miqyosidagi tadbirlar taqvimi shu bo‘limda ko‘rinadi."
-                    actionHref="/tadbirlar"
-                    actionLabel="Tadbirlar sahifasi"
-                  />
-                )}
-              </div>
-            </div>
-          </FadeInSection>
-        </div>
-      </section>
-
-      {/* ================================================================ */}
-      {/* 8. MUVAFFAQIYATLI YAKUNLANGAN LOYIHALAR */}
-      {/* ================================================================ */}
-      <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <FadeInSection>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <Badge className="mb-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Haqiqiy natijalar
-              </Badge>
-              <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-                Muvaffaqiyatli yakunlangan loyihalar
-              </h2>
-            </div>
-            <Link href="/amalga-oshirilayotgan">
-              <Button variant="outline" size="sm">
-                Barcha natijalar
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+              </StaggerItem>
+            ))}
+          </StaggerGrid>
+        ) : (
+          <div className="mt-9">
+            <EmptyState
+              icon={<Trophy className="h-7 w-7" />}
+              title="61 ta maktab reytingi faoliyat boshlanishi bilan shakllanadi"
+              description="Loyihalar, tadbirlar va hisobotlar kiritilgach reyting ko‘p mezonli formula asosida avtomatik hisoblanadi."
+              actionHref="/reyting"
+              actionLabel="Reyting mezonlarini ko‘rish"
+            />
           </div>
+        )}
+      </section>
 
-          {completedProjects.length > 0 ? (
-            <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-              {completedProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-            </div>
-          ) : (
-            <div className="mt-8 rounded-3xl border border-blue-500/20 bg-gradient-to-r from-blue-600 via-blue-700 to-teal-600 p-8 sm:p-10 text-white shadow-xl">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                <div className="max-w-2xl">
-                  <h3 className="font-display text-2xl font-bold">
-                    Birinchi tarixiy loyiha muallifi bo‘ling!
-                  </h3>
-                  <p className="mt-2 text-sm text-blue-100 sm:text-base">
-                    61 ta maktabdan o‘quvchilar va koordinatorlar o‘z tashabbuslarini ilgari surib,
-                    haftalik ovoz berishda g‘olib bo‘lishi hamda haqiqiy o‘zgarishlar yaratishi mumkin.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <Link href="/royxatdan-otish">
-                    <Button size="lg" variant="secondary">
-                      Ro‘yxatdan o‘tish
-                    </Button>
-                  </Link>
-                  <Link href="/nizom">
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="border-white/30 bg-white/10 text-white hover:bg-white/20"
-                    >
-                      <Heart className="h-4 w-4" />
-                      Nizom bilan tanishish
-                    </Button>
-                  </Link>
-                </div>
+      {/* ================================================================ */}
+      {/* 13. CALL-TO-ACTION SECTION */}
+      {/* ================================================================ */}
+      <section className="mx-auto w-full max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+        <Reveal>
+          <div className="bk-hero-bg relative overflow-hidden rounded-[28px] border border-white/15 p-8 sm:p-12 lg:p-14 text-white shadow-2xl">
+            <div className="bk-grid-bg absolute inset-0 opacity-30" />
+            <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl space-y-3">
+                <Badge className="border-[#10B981]/40 bg-[#10B981]/15 text-[#34D399]">
+                  Baliqchi tumani yoshlar harakati
+                </Badge>
+                <h2 className="font-display text-3xl font-extrabold sm:text-4xl leading-tight">
+                  O‘z g‘oyangiz bilan tumaningiz rivojiga hissa qo‘shing
+                </h2>
+                <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                  61 ta maktab o‘quvchilari safiga qo‘shiling, haftalik ovoz berishda ishtirok eting
+                  va eng yaxshi tashabbuslarni hayotga tatbiq eting.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3 shrink-0">
+                <Link href={userCtx ? "/kabinet" : "/royxatdan-otish"}>
+                  <Button size="lg" variant="primary" className="shadow-lg shadow-[#2563EB]/35">
+                    {userCtx ? "Shaxsiy kabinet" : "Hoziroq qo‘shilish"}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/ovoz-berish">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-white/25 bg-white/10 text-white hover:bg-white/20"
+                  >
+                    <Vote className="h-4 w-4" />
+                    Ovoz berish
+                  </Button>
+                </Link>
               </div>
             </div>
-          )}
-        </FadeInSection>
+          </div>
+        </Reveal>
       </section>
     </div>
   );

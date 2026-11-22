@@ -1,6 +1,6 @@
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { NotificationsList } from "@/components/features/notifications/notifications-list";
-import { getCurrentUserContext, getUserNotifications } from "@/lib/data/queries";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { NotificationsList } from "@/modules/notifications/components/notifications-list";
+import { getCurrentUserContext, getUserNotifications } from "@/core/db/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

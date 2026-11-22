@@ -3,45 +3,59 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bk-bg: #f8fafc;
-  --bk-fg: #0b1528;
+  --bk-dark-primary: #060b19;
+  --bk-dark-secondary: #0e1733;
+  --bk-indigo: #4f46e5;
+  --bk-royal: #2563eb;
+  --bk-violet: #8b5cf6;
+  --bk-cyan: #22d3ee;
+  --bk-emerald: #10b981;
+  --bk-gold: #f59e0b;
+  --bk-bg: #f4f7ff;
   --bk-surface: #ffffff;
-  --bk-surface-alt: #f1f5f9;
-  --bk-border: #e2e8f0;
-  --bk-navy: #0a162d;
-  --bk-blue: #2563eb;
-  --bk-sky: #38bdf8;
-  --bk-teal: #14b8a6;
+  --bk-surface-alt: #eef2ff;
+  --bk-border: #dbe4f8;
+  --bk-fg: #111827;
+  --bk-fg-secondary: #5b677f;
 }
 
 .dark {
-  --bk-bg: #050c1a;
-  --bk-fg: #f1f5f9;
-  --bk-surface: #0c172c;
-  --bk-surface-alt: #132240;
-  --bk-border: #1e3156;
-  --bk-navy: #061022;
-  --bk-blue: #3b82f6;
-  --bk-sky: #38bdf8;
-  --bk-teal: #2dd4bf;
+  --bk-bg: #060b19;
+  --bk-surface: #0e1733;
+  --bk-surface-alt: #16234a;
+  --bk-border: #233566;
+  --bk-fg: #f8fafc;
+  --bk-fg-secondary: #94a3b8;
 }
 
 @theme inline {
   --color-background: var(--bk-bg);
   --color-foreground: var(--bk-fg);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
   background-color: var(--bk-bg);
+  background-image:
+    radial-gradient(ellipse 65% 35% at 0% 0%, rgba(79, 70, 229, 0.06), transparent 60%),
+    radial-gradient(ellipse 55% 35% at 100% 10%, rgba(34, 211, 238, 0.06), transparent 60%);
   color: var(--bk-fg);
   font-family: var(--font-sans);
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  background-image:
+    radial-gradient(ellipse 65% 35% at 0% 0%, rgba(79, 70, 229, 0.14), transparent 60%),
+    radial-gradient(ellipse 55% 35% at 100% 10%, rgba(34, 211, 238, 0.1), transparent 60%);
 }
 
 h1,
@@ -50,28 +64,86 @@ h3,
 h4,
 .font-display {
   font-family: var(--font-display);
+  letter-spacing: -0.025em;
 }
 
+@keyframes bk-gradient-drift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes bk-float-slow {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(12deg);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) rotate(18deg);
+  }
+}
+
+/* Rich Multi-Dimensional Aurora Navy Hero & Dark Bands */
 .bk-hero-bg {
-  background-color: #071226;
+  background-color: #060b19;
   background-image:
-    radial-gradient(circle at 12% 20%, rgba(37, 99, 235, 0.36), transparent 44%),
-    radial-gradient(circle at 86% 18%, rgba(20, 184, 166, 0.24), transparent 42%),
-    radial-gradient(circle at 50% 90%, rgba(56, 189, 248, 0.22), transparent 50%);
+    radial-gradient(ellipse 65% 58% at 12% 16%, rgba(79, 70, 229, 0.42), transparent 62%),
+    radial-gradient(ellipse 52% 48% at 86% 18%, rgba(34, 211, 238, 0.28), transparent 60%),
+    radial-gradient(ellipse 46% 42% at 62% 88%, rgba(16, 185, 129, 0.24), transparent 60%),
+    radial-gradient(ellipse 40% 38% at 32% 72%, rgba(139, 92, 246, 0.22), transparent 62%);
+}
+
+.bk-dark-band {
+  background-color: #070d1f;
+  background-image:
+    radial-gradient(ellipse 58% 52% at 14% 14%, rgba(79, 70, 229, 0.3), transparent 62%),
+    radial-gradient(ellipse 50% 48% at 88% 85%, rgba(16, 185, 129, 0.22), transparent 60%),
+    radial-gradient(ellipse 45% 40% at 75% 15%, rgba(34, 211, 238, 0.18), transparent 60%);
+}
+
+.bk-3d-floor {
+  background-image:
+    linear-gradient(to right, rgba(34, 211, 238, 0.24) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(139, 92, 246, 0.24) 1px, transparent 1px);
+  background-size: 46px 46px;
+}
+
+.bk-animated-gradient {
+  background-size: 220% 220%;
+  animation: bk-gradient-drift 9s ease infinite;
+}
+
+.bk-float-slow {
+  animation: bk-float-slow 7s ease-in-out infinite;
 }
 
 .bk-glass {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .dark .bk-glass {
-  background: rgba(12, 23, 44, 0.82);
+  background: rgba(6, 11, 25, 0.84);
 }
 
 .bk-grid-bg {
   background-image:
     linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
-  background-size: 36px 36px;
+  background-size: 44px 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .bk-animated-gradient,
+  .bk-float-slow {
+    animation: none !important;
+  }
 }

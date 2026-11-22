@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Award, Medal, Scale, Trophy } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { Badge, Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { getRankingSettings, getSchoolRankings } from "@/lib/data/queries";
-import type { RankingPeriod } from "@/types/database";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { Badge, Card } from "@/core/ui/primitives/card";
+import { Button } from "@/core/ui/primitives/button";
+import { getRankingSettings, getSchoolRankings } from "@/core/db/queries";
+import type { RankingPeriod } from "@/core/types/database";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

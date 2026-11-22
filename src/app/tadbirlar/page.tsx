@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { Calendar, MapPin } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/shared/empty-state";
-import { Badge, Card, CardContent } from "@/components/ui/card";
-import { getEvents } from "@/lib/data/queries";
-import { formatUzDate } from "@/lib/utils";
+import { PageHeader, EmptyState } from "@/core/ui/shared/empty-state";
+import { Badge, Card, CardContent } from "@/core/ui/primitives/card";
+import { getEvents } from "@/core/db/queries";
+import { formatUzDate } from "@/core/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = {

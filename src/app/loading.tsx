@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/fields";
+import { Skeleton } from "@/core/ui/primitives/fields";
 
 export default function Loading() {
   return (
