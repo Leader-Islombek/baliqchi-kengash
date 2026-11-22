@@ -1,18 +1,32 @@
 "use client";
 
 import { useTransition } from "react";
-import { CalendarPlus, FileSpreadsheet, Lightbulb, Loader2, Megaphone } from "lucide-react";
+import Link from "next/link";
+import {
+  CalendarPlus,
+  CheckCircle2,
+  FileSpreadsheet,
+  Inbox,
+  Lightbulb,
+  Loader2,
+  Megaphone,
+  Plus,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/core/ui/primitives/button";
-import { Card } from "@/core/ui/primitives/card";
+import { Badge, Card } from "@/core/ui/primitives/card";
 import { Input, Label, Select, Textarea } from "@/core/ui/primitives/fields";
 import {
   createAnnouncementAction,
   createEventAction,
+  reviewInitiativeAction,
   submitInitiativeAction,
   submitReportAction,
 } from "@/modules/projects/actions";
+import { formatUzDate } from "@/core/utils";
 import type { Direction, School } from "@/core/types/database";
+import type { StudentInitiativeItem } from "@/core/db/queries";
 
 export function StudentInitiativeForm({ directions }: { directions: Direction[] }) {
   const [isPending, startTransition] = useTransition();
@@ -269,6 +283,116 @@ export function QuickAnnouncementForm({
           E’lon qilish
         </Button>
       </form>
+    </Card>
+  );
+}
+
+const INITIATIVE_STATUS_META: Record<string, { label: string; badge: string }> = {
+  new: { label: "Yangi", badge: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300" },
+  reviewing: { label: "Ko‘rib chiqilmoqda", badge: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300" },
+  accepted: { label: "Qabul qilindi", badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
+  converted: { label: "Loyihaga aylantirilgan", badge: "border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300" },
+  declined: { label: "Rad etildi", badge: "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300" },
+};
+
+export function SchoolInitiativesInbox({
+  initiatives,
+  canReview,
+  title = "O‘quvchilardan kelgan tashabbuslar",
+}: {
+  initiatives: StudentInitiativeItem[];
+  canReview: boolean;
+  title?: string;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  function handleStatus(id: string, status: "accepted" | "declined") {
+    startTransition(async () => {
+      const res = await reviewInitiativeAction(id, status);
+      if (res.ok) toast.success(res.message);
+      else toast.error(res.message);
+    });
+  }
+
+  return (
+    <Card className="p-6 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 font-display text-base font-bold">
+          <Inbox className="h-5 w-5 text-[#4F46E5] dark:text-[#22D3EE]" />
+          {title} ({initiatives.length})
+        </div>
+        <Link href="/loyihalar/yangi">
+          <Button variant="teal" size="sm">
+            <Plus className="h-3.5 w-3.5" />
+            Rasmiy loyiha yaratish
+          </Button>
+        </Link>
+      </div>
+
+      <p className="text-xs text-[#5B677F] dark:text-slate-400">
+        Maktabingiz o‘quvchilari yuborgan g‘oya va takliflarni ko‘rib chiqing hamda eng yaxshilarini rasmiy loyiha sifatida joylang.
+      </p>
+
+      {initiatives.length > 0 ? (
+        <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+          {initiatives.map((item) => {
+            const st = INITIATIVE_STATUS_META[item.status] || INITIATIVE_STATUS_META.new;
+            return (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-[#DCE5F5] dark:border-[#233566] bg-[#F4F7FF]/60 dark:bg-[#060B19]/60 p-4 space-y-2"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-display text-sm font-bold text-[#111827] dark:text-white">
+                    {item.title}
+                  </div>
+                  <Badge className={st.badge}>{st.label}</Badge>
+                </div>
+                <div className="text-xs text-[#5B677F] dark:text-slate-400">
+                  {item.author
+                    ? `${item.author.first_name} ${item.author.last_name}${item.author.grade ? ` (${item.author.grade}-sinf)` : ""}`
+                    : "O‘quvchi"}{" "}
+                  • {item.direction?.name || "Yo‘nalish"}
+                  {item.school ? ` • ${item.school.school_number}-maktab` : ""} •{" "}
+                  {formatUzDate(item.created_at)}
+                </div>
+                <p className="text-xs text-[#111827] dark:text-slate-300">
+                  <strong>Muammo:</strong> {item.problem_summary}
+                </p>
+                <p className="text-xs text-[#5B677F] dark:text-slate-400 whitespace-pre-wrap">
+                  {item.idea_details}
+                </p>
+
+                {canReview && item.status !== "accepted" && item.status !== "declined" && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="teal"
+                      disabled={isPending}
+                      onClick={() => handleStatus(item.id, "accepted")}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Qabul qilish
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-rose-500 border-rose-500/30 hover:bg-rose-500/10"
+                      disabled={isPending}
+                      onClick={() => handleStatus(item.id, "declined")}
+                    >
+                      <XCircle className="h-3.5 w-3.5" /> Rad etish
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-[#CBD7EE] dark:border-[#233566] p-6 text-center text-xs text-[#5B677F] dark:text-slate-400">
+          Hozircha o‘quvchilardan yangi tashabbus kelib tushmagan.
+        </div>
+      )}
     </Card>
   );
 }

@@ -734,6 +734,47 @@ export async function getReports(limit = 30): Promise<ProjectReport[]> {
   return (data || []) as ProjectReport[];
 }
 
+export interface StudentInitiativeItem {
+  id: string;
+  school_id: string;
+  direction_id: string;
+  author_id: string;
+  title: string;
+  problem_summary: string;
+  idea_details: string;
+  status: "new" | "reviewing" | "accepted" | "converted" | "declined";
+  reviewer_note: string | null;
+  created_at: string;
+  author?: { id: string; first_name: string; last_name: string; grade: number | null } | null;
+  direction?: { id: string; name: string; slug: string } | null;
+  school?: { id: string; school_number: number; name: string } | null;
+}
+
+export async function getStudentInitiatives(options?: {
+  schoolId?: string | null;
+  allSchools?: boolean;
+  limit?: number;
+}): Promise<StudentInitiativeItem[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return [];
+
+  let query = supabase
+    .from("student_initiatives")
+    .select(
+      "*, author:users!student_initiatives_author_id_fkey(id, first_name, last_name, grade), direction:directions(id, name, slug), school:schools(id, school_number, name)"
+    )
+    .order("created_at", { ascending: false })
+    .limit(options?.limit || 25);
+
+  if (!options?.allSchools && options?.schoolId) {
+    query = query.eq("school_id", options.schoolId);
+  }
+
+  const { data } = await query;
+  return (data || []) as StudentInitiativeItem[];
+}
+
 export async function getAdminOverviewData() {
   if (!isSupabaseConfigured()) {
     return {

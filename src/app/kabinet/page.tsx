@@ -19,6 +19,7 @@ import {
   ActivityReportForm,
   QuickAnnouncementForm,
   QuickEventForm,
+  SchoolInitiativesInbox,
   StudentInitiativeForm,
 } from "@/modules/accounts/components/cabinet-forms";
 import { ProfileEditButton } from "@/modules/accounts/components/profile-edit-modal";
@@ -33,6 +34,7 @@ import {
   getProjects,
   getReports,
   getSchools,
+  getStudentInitiatives,
 } from "@/core/db/queries";
 import { formatUzDate } from "@/core/utils";
 
@@ -64,6 +66,13 @@ export default async function CabinetPage() {
     );
   }
 
+  const isRegularStudent = userCtx.primaryRole === "student";
+  const canReviewInitiatives =
+    userCtx.isSuperAdmin ||
+    userCtx.isDistrictLeader ||
+    userCtx.isSchoolLeader ||
+    userCtx.isSchoolAdvisor;
+
   const [
     directions,
     schools,
@@ -72,6 +81,7 @@ export default async function CabinetPage() {
     recentProjects,
     reports,
     coordinators,
+    initiatives,
   ] = await Promise.all([
     getDirections(),
     getSchools(),
@@ -80,6 +90,12 @@ export default async function CabinetPage() {
     getProjects({ limit: 6, includeAllStatuses: userCtx.isDistrictLeader || userCtx.isSuperAdmin }),
     getReports(10),
     getCoordinators(),
+    isRegularStudent
+      ? Promise.resolve([])
+      : getStudentInitiatives({
+          schoolId: userCtx.user.school_id,
+          allSchools: userCtx.isDistrictLeader || userCtx.isSuperAdmin,
+        }),
   ]);
 
   const roleMeta = ROLE_META[userCtx.primaryRole];
@@ -297,8 +313,20 @@ export default async function CabinetPage() {
         {/* ROLGA MOS AMALIY FORMALAR */}
         {/* ============================================================ */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Oddiy o'quvchi uchun tashabbus yuborish */}
-          <StudentInitiativeForm directions={directions} />
+          {/* Oddiy o'quvchi tashabbus yuboradi; Lider/Koordinator/Admin esa kelgan tashabbuslarni ko'radi */}
+          {isRegularStudent ? (
+            <StudentInitiativeForm directions={directions} />
+          ) : (
+            <SchoolInitiativesInbox
+              initiatives={initiatives}
+              canReview={canReviewInitiatives}
+              title={
+                userCtx.isDistrictLeader || userCtx.isSuperAdmin
+                  ? "61 maktab o‘quvchilaridan kelgan tashabbuslar"
+                  : "Maktab o‘quvchilaridan kelgan tashabbuslar"
+              }
+            />
+          )}
 
           {/* Koordinatorlar va Liderlar uchun hisobot topshirish */}
           {canReport && (

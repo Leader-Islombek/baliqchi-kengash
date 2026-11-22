@@ -209,6 +209,63 @@ export async function submitInitiativeAction(formData: FormData): Promise<Action
   };
 }
 
+export async function reviewInitiativeAction(
+  initiativeId: string,
+  status: "reviewing" | "accepted" | "declined"
+): Promise<ActionResult> {
+  const ctx = await getCurrentUserContext();
+  if (!ctx) return { ok: false, message: "Tizimga kiring." };
+
+  const allowed =
+    ctx.isSuperAdmin || ctx.isDistrictLeader || ctx.isSchoolLeader || ctx.isSchoolAdvisor;
+  if (!allowed) {
+    return { ok: false, message: "Tashabbuslarni ko‘rib chiqish vakolatingiz yo‘q." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, message: "Ma’lumotlar bazasi ulanmagan." };
+
+  const { data: item } = await supabase
+    .from("student_initiatives")
+    .select("author_id, title")
+    .eq("id", initiativeId)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("student_initiatives")
+    .update({ status, reviewed_by: ctx.user.id })
+    .eq("id", initiativeId);
+
+  if (error) return { ok: false, message: "Holatni yangilashda xatolik: " + error.message };
+
+  if (item?.author_id) {
+    const statusText =
+      status === "accepted"
+        ? "qabul qilindi"
+        : status === "declined"
+        ? "rad etildi"
+        : "ko‘rib chiqilmoqda";
+    await supabase.from("notifications").insert({
+      user_id: item.author_id,
+      type: "initiative_reviewed",
+      title: `Tashabbusingiz ${statusText}`,
+      body: `“${item.title}” tashabbusingiz Maktab Kelajak Lideri tomonidan ko‘rib chiqildi.`,
+      link_url: "/kabinet",
+    });
+  }
+
+  revalidatePath("/kabinet");
+  return {
+    ok: true,
+    message:
+      status === "accepted"
+        ? "Tashabbus qabul qilindi! Endi uni rasmiy loyihaga aylantirishingiz mumkin."
+        : status === "declined"
+        ? "Tashabbus rad etildi."
+        : "Tashabbus ko‘rib chiqishga olindi.",
+  };
+}
+
 export async function submitReportAction(formData: FormData): Promise<ActionResult> {
   const ctx = await getCurrentUserContext();
   if (!ctx) return { ok: false, message: "Tizimga kiring." };
