@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/core/db/server";
 import { createSupabaseAdminClient } from "@/core/db/admin";
 import { isSupabaseConfigured } from "@/core/db/env";
-import { loginSchema, registerSchema } from "@/core/validations/schemas";
+import { loginSchema, registerSchema, resetPasswordOtpSchema } from "@/core/validations/schemas";
 import { normalizeUzPhone, phoneToAuthEmail } from "@/core/utils";
 import { checkRateLimit, secureHash } from "@/core/security/rate-limit";
 
@@ -48,6 +48,7 @@ export async function registerStudentAction(formData: FormData): Promise<ActionR
       ? String(formData.get("requested_direction_id"))
       : null,
     request_note: formData.get("request_note") ? String(formData.get("request_note")) : null,
+    telegram_code: formData.get("telegram_code") ? String(formData.get("telegram_code")) : null,
   };
 
   const parsed = registerSchema.safeParse(raw);
@@ -72,6 +73,77 @@ export async function registerStudentAction(formData: FormData): Promise<ActionR
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
     return { ok: false, message: "Server ulanishida xatolik yuz berdi." };
+  }
+
+  // Telegram Bot yoqilgan bo'lsa — 6 xonali OTP va haqiqiy telefon raqami MAJBURIY tekshiriladi
+  const telegramRequired = Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim());
+  let verifiedTelegramUserId: number | null = null;
+  let verificationRowId: string | null = null;
+
+  if (telegramRequired) {
+    const otp = (parsed.data.telegram_code || "").replace(/\D/g, "");
+    if (otp.length !== 6) {
+      return {
+        ok: false,
+        message: "Telegram botdan olingan 6 xonali tasdiqlash kodini kiriting.",
+      };
+    }
+    if (!adminClient) {
+      return { ok: false, message: "Serverda SUPABASE_SERVICE_ROLE_KEY sozlanmagan." };
+    }
+
+    const { data: otpRow } = await adminClient
+      .from("telegram_verifications")
+      .select("*")
+      .eq("phone_hash", phoneHash)
+      .eq("purpose", "register")
+      .is("used_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!otpRow) {
+      return {
+        ok: false,
+        message:
+          "Ushbu telefon raqami uchun faol Telegram kodi topilmadi yoki muddati tugagan. Botda aynan shu raqamni ulashing.",
+      };
+    }
+
+    if (otpRow.attempts >= 5) {
+      return {
+        ok: false,
+        message: "Juda ko‘p noto‘g‘ri urinish. Telegram botdan yangi kod oling.",
+      };
+    }
+
+    const expectedHash = secureHash(`${phoneHash}:${otp}`);
+    if (otpRow.code_hash !== expectedHash) {
+      await adminClient
+        .from("telegram_verifications")
+        .update({ attempts: (otpRow.attempts || 0) + 1 })
+        .eq("id", otpRow.id);
+      return { ok: false, message: "6 xonali Telegram tasdiqlash kodi noto‘g‘ri." };
+    }
+
+    // Bir Telegram akkauntdan bir nechta profil ochishni bloklash
+    const { data: existingTg } = await adminClient
+      .from("user_private_details")
+      .select("user_id")
+      .eq("telegram_user_id", otpRow.telegram_user_id)
+      .maybeSingle();
+
+    if (existingTg) {
+      return {
+        ok: false,
+        message:
+          "Ushbu Telegram akkaunt allaqachon boshqa profilga bog‘langan. Har bir o‘quvchi faqat 1 ta akkaunt yarata oladi.",
+      };
+    }
+
+    verifiedTelegramUserId = otpRow.telegram_user_id;
+    verificationRowId = otpRow.id;
   }
 
   // Dublikat telefon raqamini server tomonida tekshirish
@@ -130,13 +202,22 @@ export async function registerStudentAction(formData: FormData): Promise<ActionR
     return { ok: false, message: "Profil yaratishda xatolik: " + profileError.message };
   }
 
-  // Maxfiy telefon raqami alohida qat'iy RLS jadvalga yoziladi
+  // Maxfiy telefon raqami va Telegram ID alohida qat'iy RLS jadvalga yoziladi
   await writer.from("user_private_details").insert({
     user_id: userId,
     phone_e164: phoneE164,
     phone_hash: phoneHash,
     identity_fingerprint: identityHash,
+    telegram_user_id: verifiedTelegramUserId,
+    telegram_verified_at: verifiedTelegramUserId ? new Date().toISOString() : null,
   });
+
+  if (verificationRowId && adminClient) {
+    await adminClient
+      .from("telegram_verifications")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", verificationRowId);
+  }
 
   // Barcha foydalanuvchilar oddiy o'quvchi roli bilan boshlaydi
   await writer.from("user_roles").insert({
@@ -287,4 +368,100 @@ export async function updateOwnProfileAction(formData: FormData): Promise<Action
   revalidatePath("/kabinet");
   revalidatePath("/", "layout");
   return { ok: true, message: "Shaxsiy profil ma’lumotlari muvaffaqiyatli yangilandi!" };
+}
+
+export async function resetPasswordWithTelegramOtpAction(
+  formData: FormData
+): Promise<ActionResult> {
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for") || "local";
+  const rl = checkRateLimit(`reset:${ip}`, 8, 10 * 60_000);
+  if (!rl.allowed) {
+    return {
+      ok: false,
+      message: `Juda ko‘p urinish. ${rl.retryAfterSeconds} soniyadan keyin urinib ko‘ring.`,
+    };
+  }
+
+  const parsed = resetPasswordOtpSchema.safeParse({
+    phone: String(formData.get("phone") || ""),
+    telegram_code: String(formData.get("telegram_code") || ""),
+    new_password: String(formData.get("new_password") || ""),
+    confirm_password: String(formData.get("confirm_password") || ""),
+  });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message || "Ma’lumotlarni tekshirib qayta kiriting.",
+    };
+  }
+
+  const phoneE164 = normalizeUzPhone(parsed.data.phone);
+  if (!phoneE164) return { ok: false, message: "Telefon raqami noto‘g‘ri." };
+
+  const adminClient = createSupabaseAdminClient();
+  if (!adminClient) {
+    return { ok: false, message: "Server sozlamalari to‘liq emas." };
+  }
+
+  const phoneHash = secureHash(phoneE164);
+  const { data: priv } = await adminClient
+    .from("user_private_details")
+    .select("user_id")
+    .eq("phone_hash", phoneHash)
+    .maybeSingle();
+
+  if (!priv) {
+    return { ok: false, message: "Ushbu telefon raqami bilan ro‘yxatdan o‘tilgan hisob topilmadi." };
+  }
+
+  const { data: otpRow } = await adminClient
+    .from("telegram_verifications")
+    .select("*")
+    .eq("phone_hash", phoneHash)
+    .eq("purpose", "reset_password")
+    .is("used_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!otpRow) {
+    return {
+      ok: false,
+      message: "Faol Telegram tiklash kodi topilmadi yoki muddati tugagan. Botdan yangi kod oling.",
+    };
+  }
+
+  if (otpRow.attempts >= 5) {
+    return { ok: false, message: "Juda ko‘p noto‘g‘ri urinish. Botdan yangi kod oling." };
+  }
+
+  const expectedHash = secureHash(`${phoneHash}:${parsed.data.telegram_code}`);
+  if (otpRow.code_hash !== expectedHash) {
+    await adminClient
+      .from("telegram_verifications")
+      .update({ attempts: (otpRow.attempts || 0) + 1 })
+      .eq("id", otpRow.id);
+    return { ok: false, message: "6 xonali Telegram kodi noto‘g‘ri." };
+  }
+
+  const { error } = await adminClient.auth.admin.updateUserById(priv.user_id, {
+    password: parsed.data.new_password,
+  });
+
+  if (error) {
+    return { ok: false, message: "Parolni yangilashda xatolik: " + error.message };
+  }
+
+  await adminClient
+    .from("telegram_verifications")
+    .update({ used_at: new Date().toISOString() })
+    .eq("id", otpRow.id);
+
+  return {
+    ok: true,
+    message: "Parolingiz muvaffaqiyatli yangilandi! Endi yangi parol bilan tizimga kiring.",
+  };
 }

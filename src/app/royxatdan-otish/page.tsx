@@ -9,6 +9,7 @@ export const metadata = {
 
 export default async function RegisterPage() {
   const [schools, directions] = await Promise.all([getSchools(), getDirections()]);
+  const telegramBotUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.trim() || null;
 
   return (
     <div>
@@ -18,7 +19,11 @@ export default async function RegisterPage() {
         description="O‘z maktabingiz va sinfingizni tanlab ro‘yxatdan o‘ting, haftalik ovoz berishda qatnashing va g‘oyalaringizni ilgari suring."
       />
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <RegisterForm schools={schools} directions={directions} />
+        <RegisterForm
+          schools={schools}
+          directions={directions}
+          telegramBotUsername={telegramBotUsername}
+        />
       </div>
     </div>
   );

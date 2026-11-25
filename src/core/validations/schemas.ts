@@ -30,8 +30,32 @@ export const registerSchema = z
       .default("student"),
     requested_direction_id: z.string().optional().nullable(),
     request_note: z.string().max(500).optional().nullable(),
+    telegram_code: z.string().trim().optional().nullable(),
   })
   .refine((data) => data.password === data.confirm_password, {
+    path: ["confirm_password"],
+    message: "Parollar bir-biriga mos emas",
+  });
+
+export const resetPasswordOtpSchema = z
+  .object({
+    phone: z
+      .string()
+      .trim()
+      .refine((val) => normalizeUzPhone(val) !== null, {
+        message: "Telefon raqamini to‘g‘ri kiriting (+998XXXXXXXXX)",
+      }),
+    telegram_code: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/, "Telegram botdan olingan 6 xonali kodni kiriting"),
+    new_password: z
+      .string()
+      .min(8, "Yangi parol kamida 8 ta belgidan iborat bo‘lsin")
+      .max(72),
+    confirm_password: z.string(),
+  })
+  .refine((d) => d.new_password === d.confirm_password, {
     path: ["confirm_password"],
     message: "Parollar bir-biriga mos emas",
   });

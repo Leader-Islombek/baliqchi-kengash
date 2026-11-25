@@ -11,6 +11,7 @@ export default async function LoginPage({
   searchParams: Promise<{ redirect?: string }>;
 }) {
   const sp = await searchParams;
+  const telegramBotUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.trim() || null;
   return (
     <div>
       <PageHeader
@@ -19,7 +20,7 @@ export default async function LoginPage({
         description="Ovoz berish, guruhlarda muloqot qilish va loyihalarni boshqarish uchun hisobingizga kiring."
       />
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <LoginForm redirectTo={sp.redirect} />
+        <LoginForm redirectTo={sp.redirect} telegramBotUsername={telegramBotUsername} />
       </div>
     </div>
   );
