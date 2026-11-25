@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Scale,
   School as SchoolIcon,
+  Send,
   ShieldCheck,
   Trash2,
   Users,
@@ -43,6 +44,8 @@ import {
   adminUpsertSchoolAction,
 } from "@/modules/administration/actions";
 import { formatUzDate } from "@/core/utils";
+import { TelegramAdminPanel } from "@/modules/telegram-admin/components/telegram-admin-panel";
+import type { TelegramBotAdminOverview } from "@/modules/telegram-admin/queries";
 import type {
   ActivityLog,
   CoordinatorRecord,
@@ -61,6 +64,7 @@ type AdminTab =
   | "users"
   | "projects"
   | "voting"
+  | "telegram"
   | "schools"
   | "rankings"
   | "audit";
@@ -75,6 +79,7 @@ export function AdminConsole({
   directions,
   rankingSettings,
   logs,
+  telegramData,
 }: {
   pendingRoles: UserRoleRecord[];
   activeCoordinators: CoordinatorRecord[];
@@ -85,6 +90,7 @@ export function AdminConsole({
   directions: Direction[];
   rankingSettings: RankingSettings;
   logs: ActivityLog[];
+  telegramData: TelegramBotAdminOverview;
 }) {
   const [tab, setTab] = useState<AdminTab>("roles");
   const [isPending, startTransition] = useTransition();
@@ -101,6 +107,7 @@ export function AdminConsole({
     { key: "users", label: "Foydalanuvchilar", icon: Users, badge: users.length },
     { key: "projects", label: "Loyihalar", icon: FolderKanban, badge: projects.length },
     { key: "voting", label: "Ovoz berish", icon: Vote, badge: votingWeeks.length },
+    { key: "telegram", label: "Telegram Bot", icon: Send, badge: telegramData.stats.activeChannels },
     { key: "schools", label: "Maktab va Yo‘nalish", icon: SchoolIcon },
     { key: "rankings", label: "Reyting mezonlari", icon: Scale },
     { key: "audit", label: "Audit log", icon: FileClock },
@@ -827,6 +834,9 @@ export function AdminConsole({
           )}
         </Card>
       )}
+
+      {/* TELEGRAM BOT ADMIN PANELI */}
+      {tab === "telegram" && <TelegramAdminPanel data={telegramData} schools={schools} />}
 
       {/* Parolni tiklash modali */}
       <MotionModal

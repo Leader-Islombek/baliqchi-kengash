@@ -6,6 +6,7 @@ import { Button } from "@/core/ui/primitives/button";
 import { CountdownTimer } from "@/core/ui/shared/countdown-timer";
 import { VotingBoard } from "@/modules/voting/components/voting-board";
 import { getActiveVotingData, getCurrentUserContext, getDirections } from "@/core/db/queries";
+import { getAdminPanelPath } from "@/core/config/admin-path";
 import { formatUzDate } from "@/core/utils";
 
 export const dynamic = "force-dynamic";
@@ -120,7 +121,7 @@ export default async function WeeklyVotingPage() {
             icon={<Vote className="h-7 w-7" />}
             title={`“${activeWeek.title}” haftasi faol, ammo nomzod loyihalar hali biriktirilmagan`}
             description="Loyiha yaratib, Admin paneldagi «Loyihalar» bo‘limida uning holatini «Ovoz berilmoqda» qilib ushbu haftaga biriktiring."
-            actionHref={userCtx?.isSuperAdmin ? "/admin" : "/loyihalar/yangi"}
+            actionHref={userCtx?.isSuperAdmin ? getAdminPanelPath() : "/loyihalar/yangi"}
             actionLabel={userCtx?.isSuperAdmin ? "Admin panelda loyiha biriktirish" : "Loyiha yaratish"}
           />
         ) : (
@@ -128,7 +129,7 @@ export default async function WeeklyVotingPage() {
             icon={<Vote className="h-7 w-7" />}
             title="Hozirda faol haftalik ovoz berish mavjud emas"
             description="Super Administrator yangi ovoz berish haftasini ochib, moderatsiyadan o‘tgan loyihalarni biriktirgach, ovoz berish avtomatik boshlanadi."
-            actionHref={userCtx?.isSuperAdmin ? "/admin" : "/goliblar"}
+            actionHref={userCtx?.isSuperAdmin ? getAdminPanelPath() : "/goliblar"}
             actionLabel={userCtx?.isSuperAdmin ? "Admin panelda hafta ochish" : "Oldingi haftalik g‘oliblarni ko‘rish"}
           />
         )}

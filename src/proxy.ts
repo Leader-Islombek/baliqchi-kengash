@@ -6,7 +6,6 @@ const PROTECTED_PREFIXES = [
   "/kabinet",
   "/guruhlar",
   "/bildirishnomalar",
-  "/admin",
   "/loyihalar/yangi",
 ];
 

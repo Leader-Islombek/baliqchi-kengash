@@ -6,6 +6,13 @@ import { createSupabaseAdminClient } from "@/core/db/admin";
 import { getCurrentUserContext } from "@/core/db/queries";
 import { rankingWeightsSchema, votingWeekSchema } from "@/core/validations/schemas";
 import { normalizeTashkentDateTime, slugifyUz } from "@/core/utils";
+import { getAdminPanelPath } from "@/core/config/admin-path";
+import { PROJECT_STATUS_META, ROLE_META } from "@/core/config/official-data";
+import {
+  notifyActiveVotingWeekViaTelegram,
+  notifyProjectUpdateViaTelegram,
+  notifyRoleUpdateViaTelegram,
+} from "@/core/telegram/bot";
 import type { AppRole, ProjectStatus, RankingPeriod } from "@/core/types/database";
 import type { ActionResult } from "@/modules/accounts/actions";
 
@@ -129,12 +136,22 @@ export async function adminReviewRoleRequestAction(
     link_url: "/kabinet",
   });
 
+  await notifyRoleUpdateViaTelegram(
+    reqRow.user_id,
+    decision === "approved"
+      ? "Lavozim arizangiz tasdiqlandi!"
+      : "Lavozim arizangiz rad etildi",
+    decision === "approved"
+      ? `Tabriklaymiz! Sizga «${ROLE_META[reqRow.role as AppRole]?.label || reqRow.role}» vakolati va tegishli boshqaruv guruhlari ochildi.`
+      : "Qo‘shimcha ma’lumot uchun tuman administratori bilan bog‘laning."
+  );
+
   await logAdminAudit(admin.user.id, `role_request_${decision}`, "user_roles", roleRequestId, {
     user_id: reqRow.user_id,
     role: reqRow.role,
   });
 
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/koordinatorlar");
   revalidatePath("/kelajak-liderlari");
   return {
@@ -324,8 +341,16 @@ export async function adminAssignRoleDirectlyAction(formData: FormData): Promise
     directionId,
   });
 
+  await notifyRoleUpdateViaTelegram(
+    userId,
+    role === "student" ? "Lavozimingiz yangilandi" : "Sizga yangi rasmiy lavozim tayinlandi!",
+    role === "student"
+      ? "Sizning platformadagi maqomingiz oddiy o‘quvchi darajasiga o‘tkazildi."
+      : `Tabriklaymiz! Super Administrator sizni «${ROLE_META[role]?.label || role}» lavozimiga tayinladi.`
+  );
+
   revalidatePath("/");
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/koordinatorlar");
   revalidatePath("/kelajak-liderlari");
   revalidatePath("/maktablar");
@@ -378,7 +403,7 @@ export async function adminRevokeCoordinatorAction(coordinatorId: string): Promi
   });
 
   revalidatePath("/");
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/koordinatorlar");
   revalidatePath("/kelajak-liderlari");
   revalidatePath("/maktablar");
@@ -417,7 +442,7 @@ export async function adminUpdateUserControlAction(formData: FormData): Promise<
     canSubmitProjects,
   });
 
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   return { ok: true, message: "Foydalanuvchi sozlamalari yangilandi." };
 }
 
@@ -439,7 +464,7 @@ export async function adminUpdateProjectAction(formData: FormData): Promise<Acti
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, message: "Ma’lumotlar bazasi ulanmagan." };
 
-  const { error } = await supabase
+  const { data: updatedProj, error } = await supabase
     .from("projects")
     .update({
       status,
@@ -449,9 +474,21 @@ export async function adminUpdateProjectAction(formData: FormData): Promise<Acti
       reviewed_by: admin.user.id,
       reviewed_at: new Date().toISOString(),
     })
-    .eq("id", projectId);
+    .eq("id", projectId)
+    .select("title, slug, author_id")
+    .maybeSingle();
 
   if (error) return { ok: false, message: error.message };
+
+  if (updatedProj?.author_id) {
+    await notifyProjectUpdateViaTelegram(
+      updatedProj.author_id,
+      updatedProj.title,
+      PROJECT_STATUS_META[status]?.label || status,
+      updatedProj.slug,
+      moderationNote
+    );
+  }
 
   await logAdminAudit(admin.user.id, "update_project_admin", "projects", projectId, {
     status,
@@ -460,7 +497,7 @@ export async function adminUpdateProjectAction(formData: FormData): Promise<Acti
     moderationNote,
   });
 
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/loyihalar");
   revalidatePath("/ovoz-berish");
   revalidatePath("/amalga-oshirilayotgan");
@@ -479,7 +516,7 @@ export async function adminDeleteProjectAction(projectId: string): Promise<Actio
   if (error) return { ok: false, message: error.message };
 
   await logAdminAudit(admin.user.id, "delete_project", "projects", projectId, {});
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/loyihalar");
   return { ok: true, message: "Loyiha butunlay o‘chirildi." };
 }
@@ -527,7 +564,7 @@ export async function adminUpsertSchoolAction(formData: FormData): Promise<Actio
     name,
   });
 
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/maktablar");
   return { ok: true, message: "Maktab ma’lumotlari saqlandi." };
 }
@@ -571,7 +608,7 @@ export async function adminCreateDirectionAction(formData: FormData): Promise<Ac
   });
 
   await logAdminAudit(admin.user.id, "create_direction", "directions", dir.id, { name });
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/yonalishlar");
   return { ok: true, message: "Yangi yo‘nalish va uning boshqaruv guruhi yaratildi!" };
 }
@@ -615,6 +652,10 @@ export async function adminCreateVotingWeekAction(formData: FormData): Promise<A
 
   if (error) return { ok: false, message: error.message };
 
+  if (normalizedPayload.status === "active") {
+    await notifyActiveVotingWeekViaTelegram(normalizedPayload.title);
+  }
+
   await logAdminAudit(
     admin.user.id,
     "create_voting_week",
@@ -622,7 +663,7 @@ export async function adminCreateVotingWeekAction(formData: FormData): Promise<A
     data.id,
     normalizedPayload
   );
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/ovoz-berish");
   revalidatePath("/");
   return { ok: true, message: "Yangi ovoz berish haftasi yaratildi (O‘zbekiston vaqti +05:00)!" };
@@ -657,18 +698,24 @@ export async function adminSetVotingWeekStatusAction(
     }
   }
 
-  const { error } = await supabase
+  const { data: updatedWeek, error } = await supabase
     .from("voting_weeks")
     .update(updatePayload)
-    .eq("id", weekId);
+    .eq("id", weekId)
+    .select("title")
+    .maybeSingle();
 
   if (error) return { ok: false, message: error.message };
+
+  if (nextStatus === "active" && updatedWeek?.title) {
+    await notifyActiveVotingWeekViaTelegram(updatedWeek.title);
+  }
 
   await logAdminAudit(admin.user.id, "update_voting_week_status", "voting_weeks", weekId, {
     nextStatus,
   });
 
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/ovoz-berish");
   revalidatePath("/");
   return {
@@ -691,7 +738,7 @@ export async function adminDeleteVotingWeekAction(weekId: string): Promise<Actio
   if (error) return { ok: false, message: error.message };
 
   await logAdminAudit(admin.user.id, "delete_voting_week", "voting_weeks", weekId, {});
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/ovoz-berish");
   revalidatePath("/");
   return { ok: true, message: "Ovoz berish haftasi o‘chirildi." };
@@ -717,7 +764,7 @@ export async function adminFinalizeVotingWeekAction(
   if (error) return { ok: false, message: error.message };
 
   const res = data as { ok: boolean; message?: string; winner_title?: string };
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/ovoz-berish");
   revalidatePath("/goliblar");
   return {
@@ -756,7 +803,7 @@ export async function adminUpdateRankingWeightsAction(formData: FormData): Promi
   if (error) return { ok: false, message: error.message };
 
   await logAdminAudit(admin.user.id, "update_ranking_weights", "ranking_settings", null, parsed.data);
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/reyting");
   return { ok: true, message: "Reyting mezonlari yangilandi!" };
 }
@@ -876,7 +923,7 @@ export async function adminDeleteUserAction(userId: string): Promise<ActionResul
     deleted_name: targetUser ? `${targetUser.first_name} ${targetUser.last_name}` : userId,
   });
 
-  revalidatePath("/admin");
+  revalidatePath(getAdminPanelPath());
   revalidatePath("/koordinatorlar");
   revalidatePath("/kelajak-liderlari");
   revalidatePath("/");

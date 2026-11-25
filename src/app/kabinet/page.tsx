@@ -23,6 +23,7 @@ import {
   StudentInitiativeForm,
 } from "@/modules/accounts/components/cabinet-forms";
 import { ProfileEditButton } from "@/modules/accounts/components/profile-edit-modal";
+import { getAdminPanelPath } from "@/core/config/admin-path";
 import { ROLE_META } from "@/core/config/official-data";
 import { hasPermission } from "@/core/security/permissions";
 import {
@@ -140,7 +141,7 @@ export default async function CabinetPage() {
           </Link>
         )}
         {userCtx.isSuperAdmin && (
-          <Link href="/admin">
+          <Link href={getAdminPanelPath()}>
             <Button variant="danger">
               <ShieldCheck className="h-4 w-4" />
               Super Admin Panel

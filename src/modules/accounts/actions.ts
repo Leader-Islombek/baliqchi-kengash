@@ -219,6 +219,17 @@ export async function registerStudentAction(formData: FormData): Promise<ActionR
       .eq("id", verificationRowId);
   }
 
+  if (verifiedTelegramUserId && adminClient) {
+    try {
+      await adminClient
+        .from("telegram_bot_users")
+        .update({ linked_user_id: userId })
+        .eq("telegram_user_id", verifiedTelegramUserId);
+    } catch {
+      // Migration 0009 hali ishga tushmagan bo'lsa ham ro'yxatdan o'tish davom etadi
+    }
+  }
+
   // Barcha foydalanuvchilar oddiy o'quvchi roli bilan boshlaydi
   await writer.from("user_roles").insert({
     user_id: userId,

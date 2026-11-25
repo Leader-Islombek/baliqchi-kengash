@@ -61,7 +61,13 @@ const NAV_GROUPS = [
   },
 ];
 
-export function Navbar({ userCtx }: { userCtx: CurrentUserContext | null }) {
+export function Navbar({
+  userCtx,
+  adminPath,
+}: {
+  userCtx: CurrentUserContext | null;
+  adminPath?: string | null;
+}) {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -267,8 +273,8 @@ export function Navbar({ userCtx }: { userCtx: CurrentUserContext | null }) {
                   </span>
                 )}
               </Link>
-              {userCtx.isSuperAdmin && (
-                <Link href="/admin">
+              {userCtx.isSuperAdmin && adminPath && (
+                <Link href={adminPath}>
                   <Button variant="danger" size="sm">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     Admin
@@ -352,8 +358,8 @@ export function Navbar({ userCtx }: { userCtx: CurrentUserContext | null }) {
                         Kabinet
                       </Button>
                     </Link>
-                    {userCtx.isSuperAdmin && (
-                      <Link href="/admin" onClick={() => setMobileOpen(false)}>
+                    {userCtx.isSuperAdmin && adminPath && (
+                      <Link href={adminPath} onClick={() => setMobileOpen(false)}>
                         <Button size="sm" variant="danger">
                           Admin
                         </Button>

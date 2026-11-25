@@ -7,6 +7,7 @@ import { Navbar } from "@/core/ui/layout/navbar";
 import { Footer } from "@/core/ui/layout/footer";
 import { getCurrentUserContext } from "@/core/db/queries";
 import { PLATFORM_INFO } from "@/core/config/official-data";
+import { getAdminPanelPath } from "@/core/config/admin-path";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -30,12 +31,13 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const userCtx = await getCurrentUserContext();
+  const adminPath = userCtx?.isSuperAdmin ? getAdminPanelPath() : null;
 
   return (
     <html lang="uz" suppressHydrationWarning className={inter.variable}>
       <body className="min-h-screen flex flex-col bg-[#F5F8FF] text-[#172033] dark:bg-[#0B1224] dark:text-slate-100 antialiased">
         <Providers>
-          <Navbar userCtx={userCtx} />
+          <Navbar userCtx={userCtx} adminPath={adminPath} />
           <main className="flex-1">{children}</main>
           <Footer />
         </Providers>
