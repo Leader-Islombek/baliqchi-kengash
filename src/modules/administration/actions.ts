@@ -155,37 +155,167 @@ export async function adminAssignRoleDirectlyAction(formData: FormData): Promise
 
   if (!userId) return { ok: false, message: "Foydalanuvchini tanlang." };
 
+  // Majburiy maydonlarni tekshirish
+  if ((role === "district_coordinator" || role === "school_coordinator") && !directionId) {
+    return { ok: false, message: "Koordinator lavozimi uchun yo‘nalishni tanlang." };
+  }
+  if ((role === "school_leader" || role === "school_coordinator" || role === "school_advisor") && !schoolId) {
+    return { ok: false, message: "Maktab darajasidagi lavozim uchun maktabni tanlang." };
+  }
+
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { ok: false, message: "Ma’lumotlar bazasi ulanmagan." };
 
-  const { error } = await supabase.from("user_roles").insert({
-    user_id: userId,
-    role,
-    school_id: schoolId || null,
-    direction_id: directionId || null,
-    status: "approved",
-    reviewed_by: admin.user.id,
-    reviewed_at: new Date().toISOString(),
-  });
+  const nowIso = new Date().toISOString();
+  const isCouncilRole = [
+    "school_coordinator",
+    "school_leader",
+    "district_coordinator",
+    "district_leader",
+    "school_advisor",
+  ].includes(role);
 
-  if (error) return { ok: false, message: error.message };
+  // 1) Foydalanuvchining oldingi Kengash lavozimlarini avtomatik bekor qilish (super_admin dan tashqari)
+  if (role !== "super_admin") {
+    await supabase
+      .from("coordinators")
+      .update({ is_active: false, term_end: nowIso })
+      .eq("user_id", userId)
+      .eq("is_active", true);
 
-  if (
-    [
-      "school_coordinator",
-      "school_leader",
-      "district_coordinator",
-      "district_leader",
-      "school_advisor",
-    ].includes(role)
-  ) {
-    await supabase.from("coordinators").insert({
+    await supabase
+      .from("user_roles")
+      .update({ status: "revoked", reviewed_by: admin.user.id, reviewed_at: nowIso })
+      .eq("user_id", userId)
+      .eq("status", "approved")
+      .not("role", "in", '("student","super_admin")');
+  }
+
+  // 2) Yangi lavozim o'rnida oldin boshqa odam turgan bo'lsa, uni avtomatik bo'shatish
+  if (role === "district_leader") {
+    const { data: oldHolders } = await supabase
+      .from("coordinators")
+      .select("user_id")
+      .eq("role", "district_leader")
+      .eq("is_active", true);
+
+    await supabase
+      .from("coordinators")
+      .update({ is_active: false, term_end: nowIso })
+      .eq("role", "district_leader")
+      .eq("is_active", true);
+
+    for (const h of oldHolders || []) {
+      await supabase
+        .from("user_roles")
+        .update({ status: "revoked", reviewed_by: admin.user.id, reviewed_at: nowIso })
+        .eq("user_id", h.user_id)
+        .eq("role", "district_leader")
+        .eq("status", "approved");
+    }
+  } else if (role === "district_coordinator" && directionId) {
+    const { data: oldHolders } = await supabase
+      .from("coordinators")
+      .select("user_id")
+      .eq("role", "district_coordinator")
+      .eq("direction_id", directionId)
+      .eq("is_active", true);
+
+    await supabase
+      .from("coordinators")
+      .update({ is_active: false, term_end: nowIso })
+      .eq("role", "district_coordinator")
+      .eq("direction_id", directionId)
+      .eq("is_active", true);
+
+    for (const h of oldHolders || []) {
+      await supabase
+        .from("user_roles")
+        .update({ status: "revoked", reviewed_by: admin.user.id, reviewed_at: nowIso })
+        .eq("user_id", h.user_id)
+        .eq("role", "district_coordinator")
+        .eq("direction_id", directionId)
+        .eq("status", "approved");
+    }
+  } else if (role === "school_leader" && schoolId) {
+    const { data: oldHolders } = await supabase
+      .from("coordinators")
+      .select("user_id")
+      .eq("role", "school_leader")
+      .eq("school_id", schoolId)
+      .eq("is_active", true);
+
+    await supabase
+      .from("coordinators")
+      .update({ is_active: false, term_end: nowIso })
+      .eq("role", "school_leader")
+      .eq("school_id", schoolId)
+      .eq("is_active", true);
+
+    for (const h of oldHolders || []) {
+      await supabase
+        .from("user_roles")
+        .update({ status: "revoked", reviewed_by: admin.user.id, reviewed_at: nowIso })
+        .eq("user_id", h.user_id)
+        .eq("role", "school_leader")
+        .eq("school_id", schoolId)
+        .eq("status", "approved");
+    }
+  } else if (role === "school_coordinator" && schoolId && directionId) {
+    const { data: oldHolders } = await supabase
+      .from("coordinators")
+      .select("user_id")
+      .eq("role", "school_coordinator")
+      .eq("school_id", schoolId)
+      .eq("direction_id", directionId)
+      .eq("is_active", true);
+
+    await supabase
+      .from("coordinators")
+      .update({ is_active: false, term_end: nowIso })
+      .eq("role", "school_coordinator")
+      .eq("school_id", schoolId)
+      .eq("direction_id", directionId)
+      .eq("is_active", true);
+
+    for (const h of oldHolders || []) {
+      await supabase
+        .from("user_roles")
+        .update({ status: "revoked", reviewed_by: admin.user.id, reviewed_at: nowIso })
+        .eq("user_id", h.user_id)
+        .eq("role", "school_coordinator")
+        .eq("school_id", schoolId)
+        .eq("direction_id", directionId)
+        .eq("status", "approved");
+    }
+  }
+
+  // 3) Yangi rol yozish (oddiy o'quvchiga tushirilgan bo'lsa student roli allaqachon mavjud)
+  if (role !== "student") {
+    const { error } = await supabase.from("user_roles").insert({
+      user_id: userId,
+      role,
+      school_id: schoolId || null,
+      direction_id: directionId || null,
+      status: "approved",
+      reviewed_by: admin.user.id,
+      reviewed_at: nowIso,
+    });
+    if (error) return { ok: false, message: "Rol yozishda xatolik: " + error.message };
+  }
+
+  // 4) Coordinators jadvaliga kiritish va xatolikni tekshirish
+  if (isCouncilRole) {
+    const { error: coordErr } = await supabase.from("coordinators").insert({
       user_id: userId,
       role,
       school_id: schoolId || null,
       direction_id: directionId || null,
       is_active: true,
     });
+    if (coordErr) {
+      return { ok: false, message: "Lavozimni faollashtirishda xatolik: " + coordErr.message };
+    }
   }
 
   await logAdminAudit(admin.user.id, "direct_role_assign", "users", userId, {
@@ -194,8 +324,67 @@ export async function adminAssignRoleDirectlyAction(formData: FormData): Promise
     directionId,
   });
 
+  revalidatePath("/");
   revalidatePath("/admin");
-  return { ok: true, message: "Rol muvaffaqiyatli tayinlandi!" };
+  revalidatePath("/koordinatorlar");
+  revalidatePath("/kelajak-liderlari");
+  revalidatePath("/maktablar");
+  revalidatePath("/yonalishlar");
+  revalidatePath("/kabinet");
+  revalidatePath("/guruhlar");
+  return {
+    ok: true,
+    message:
+      role === "student"
+        ? "Foydalanuvchi lavozimdan olindi va oddiy o‘quvchi maqomiga o‘tkazildi."
+        : "Rol muvaffaqiyatli tayinlandi (oldingi lavozim avtomatik yangilandi)!",
+  };
+}
+
+// 2B. AKTIV KOORDINATOR / LIDERNI LAVOZIMDAN OLISH (1 klikda)
+export async function adminRevokeCoordinatorAction(coordinatorId: string): Promise<ActionResult> {
+  const admin = await requireSuperAdmin();
+  if (!admin) return { ok: false, message: "Faqat Super Administrator ruxsatiga ega." };
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, message: "Ma’lumotlar bazasi ulanmagan." };
+
+  const { data: coord } = await supabase
+    .from("coordinators")
+    .select("*")
+    .eq("id", coordinatorId)
+    .maybeSingle();
+
+  if (!coord) return { ok: false, message: "Tayinlov topilmadi." };
+
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase
+    .from("coordinators")
+    .update({ is_active: false, term_end: nowIso })
+    .eq("id", coordinatorId);
+
+  if (error) return { ok: false, message: error.message };
+
+  await supabase
+    .from("user_roles")
+    .update({ status: "revoked", reviewed_by: admin.user.id, reviewed_at: nowIso })
+    .eq("user_id", coord.user_id)
+    .eq("role", coord.role)
+    .eq("status", "approved");
+
+  await logAdminAudit(admin.user.id, "revoke_coordinator", "coordinators", coordinatorId, {
+    user_id: coord.user_id,
+    role: coord.role,
+  });
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/koordinatorlar");
+  revalidatePath("/kelajak-liderlari");
+  revalidatePath("/maktablar");
+  revalidatePath("/yonalishlar");
+  revalidatePath("/kabinet");
+  return { ok: true, message: "Lavozim bekor qilindi va bo‘shatildi." };
 }
 
 // 3. FOYDALANUVCHI HOLATI VA QO'SHIMCHA VAKOLATLARINI BOSHQARISH

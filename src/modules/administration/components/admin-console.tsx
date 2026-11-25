@@ -35,6 +35,7 @@ import {
   adminRecalculateRankingsAction,
   adminResetUserPasswordAction,
   adminReviewRoleRequestAction,
+  adminRevokeCoordinatorAction,
   adminSetVotingWeekStatusAction,
   adminUpdateProjectAction,
   adminUpdateRankingWeightsAction,
@@ -44,6 +45,7 @@ import {
 import { formatUzDate } from "@/core/utils";
 import type {
   ActivityLog,
+  CoordinatorRecord,
   Direction,
   Project,
   ProjectStatus,
@@ -65,6 +67,7 @@ type AdminTab =
 
 export function AdminConsole({
   pendingRoles,
+  activeCoordinators,
   users,
   projects,
   votingWeeks,
@@ -74,6 +77,7 @@ export function AdminConsole({
   logs,
 }: {
   pendingRoles: UserRoleRecord[];
+  activeCoordinators: CoordinatorRecord[];
   users: Array<UserProfile & { phone_e164?: string | null }>;
   projects: Project[];
   votingWeeks: VotingWeek[];
@@ -261,6 +265,49 @@ export function AdminConsole({
                 </Button>
               </div>
             </form>
+          </Card>
+
+          {/* Aktiv lavozim egalari va 1 klikda lavozimdan olish */}
+          <Card className="p-6 space-y-4">
+            <h3 className="font-display text-base font-bold">
+              Hozirda aktiv lavozim egalari ({activeCoordinators.length})
+            </h3>
+            {activeCoordinators.length > 0 ? (
+              <div className="space-y-2.5">
+                {activeCoordinators.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex flex-col gap-2 rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 font-semibold text-sm">
+                        <span>
+                          {c.user ? `${c.user.first_name} ${c.user.last_name}` : "Foydalanuvchi"}
+                        </span>
+                        <Badge className={ROLE_META[c.role].badgeColor}>
+                          {ROLE_META[c.role].label}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {c.school ? `${c.school.school_number}-maktab` : "Tuman darajasi"}
+                        {c.direction ? ` • ${c.direction.name}` : ""}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-rose-500 border-rose-500/30 hover:bg-rose-500/10 shrink-0"
+                      disabled={isPending}
+                      onClick={() => runAction(() => adminRevokeCoordinatorAction(c.id))}
+                    >
+                      <XCircle className="h-3.5 w-3.5" /> Lavozimdan olish
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Hozircha aktiv tayinlovlar yo‘q.</p>
+            )}
           </Card>
         </div>
       )}

@@ -779,6 +779,7 @@ export async function getAdminOverviewData() {
   if (!isSupabaseConfigured()) {
     return {
       pendingRoles: [] as UserRoleRecord[],
+      activeCoordinators: [] as CoordinatorRecord[],
       users: [] as Array<UserProfile & { phone_e164?: string | null }>,
       projects: [] as Project[],
       votingWeeks: [] as VotingWeek[],
@@ -792,6 +793,7 @@ export async function getAdminOverviewData() {
   if (!supabase) {
     return {
       pendingRoles: [] as UserRoleRecord[],
+      activeCoordinators: [] as CoordinatorRecord[],
       users: [] as Array<UserProfile & { phone_e164?: string | null }>,
       projects: [] as Project[],
       votingWeeks: [] as VotingWeek[],
@@ -802,38 +804,55 @@ export async function getAdminOverviewData() {
     };
   }
 
-  const [pendingRolesRes, usersRes, privateRes, projectsRes, weeksRes, logsRes, schoolsRes, dirsRes, weights] =
-    await Promise.all([
-      supabase
-        .from("user_roles")
-        .select(
-          "*, user:users!user_roles_user_id_fkey(id, first_name, last_name, grade, school_id), school:schools(id, school_number, name), direction:directions(id, name, slug)"
-        )
-        .eq("status", "pending")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("users")
-        .select("*, school:schools(id, school_number, name, slug)")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase.from("user_private_details").select("user_id, phone_e164"),
-      supabase
-        .from("projects")
-        .select(
-          "*, school:schools(id, school_number, name, slug), direction:directions(id, name, slug, icon_name, accent_color), author:users!projects_author_id_fkey(id, first_name, last_name, grade)"
-        )
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase.from("voting_weeks").select("*").order("starts_at", { ascending: false }),
-      supabase
-        .from("activity_logs")
-        .select("*, actor:users(id, first_name, last_name)")
-        .order("created_at", { ascending: false })
-        .limit(80),
-      supabase.from("schools").select("*").order("school_number", { ascending: true }),
-      supabase.from("directions").select("*").order("sort_order", { ascending: true }),
-      getRankingSettings(),
-    ]);
+  const [
+    pendingRolesRes,
+    activeCoordsRes,
+    usersRes,
+    privateRes,
+    projectsRes,
+    weeksRes,
+    logsRes,
+    schoolsRes,
+    dirsRes,
+    weights,
+  ] = await Promise.all([
+    supabase
+      .from("user_roles")
+      .select(
+        "*, user:users!user_roles_user_id_fkey(id, first_name, last_name, grade, school_id), school:schools(id, school_number, name), direction:directions(id, name, slug)"
+      )
+      .eq("status", "pending")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("coordinators")
+      .select(
+        "*, user:users(id, first_name, last_name, grade, avatar_url), school:schools(id, school_number, name, slug), direction:directions(id, name, slug, icon_name, accent_color)"
+      )
+      .eq("is_active", true)
+      .order("appointed_at", { ascending: false }),
+    supabase
+      .from("users")
+      .select("*, school:schools(id, school_number, name, slug)")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase.from("user_private_details").select("user_id, phone_e164"),
+    supabase
+      .from("projects")
+      .select(
+        "*, school:schools(id, school_number, name, slug), direction:directions(id, name, slug, icon_name, accent_color), author:users!projects_author_id_fkey(id, first_name, last_name, grade)"
+      )
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase.from("voting_weeks").select("*").order("starts_at", { ascending: false }),
+    supabase
+      .from("activity_logs")
+      .select("*, actor:users(id, first_name, last_name)")
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabase.from("schools").select("*").order("school_number", { ascending: true }),
+    supabase.from("directions").select("*").order("sort_order", { ascending: true }),
+    getRankingSettings(),
+  ]);
 
   const phoneMap = new Map<string, string>();
   (privateRes.data || []).forEach((row: { user_id: string; phone_e164: string }) => {
@@ -847,6 +866,7 @@ export async function getAdminOverviewData() {
 
   return {
     pendingRoles: (pendingRolesRes.data || []) as UserRoleRecord[],
+    activeCoordinators: (activeCoordsRes.data || []) as CoordinatorRecord[],
     users: mergedUsers,
     projects: (projectsRes.data || []) as Project[],
     votingWeeks: (weeksRes.data || []) as VotingWeek[],

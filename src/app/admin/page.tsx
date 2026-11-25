@@ -44,6 +44,7 @@ export default async function AdminPage() {
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <AdminConsole
           pendingRoles={data.pendingRoles}
+          activeCoordinators={data.activeCoordinators}
           users={data.users}
           projects={data.projects}
           votingWeeks={data.votingWeeks}
